@@ -477,6 +477,9 @@ function Protect-LoginState {
             encrypted = [Convert]::ToBase64String($cipherBytes)
         }
     }
+    if ($entries.Count -eq 0) {
+        return 0
+    }
 
     $package = [pscustomobject][ordered]@{
         version = 1
@@ -550,10 +553,18 @@ function Restore-LoginState {
 function Set-BackupPermissions {
     param([string]$BackupPath)
 
+    $currentUserSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $currentUserGrant = "*{0}:(OI)(CI)F" -f $currentUserSid
+    $systemGrant = "*S-1-5-18:(OI)(CI)F"
+    $administratorsGrant = "*S-1-5-32-544:(OI)(CI)F"
+
     & icacls.exe $BackupPath /inheritance:r /grant:r `
-        "$($env:USERNAME):(OI)(CI)F" `
-        "SYSTEM:(OI)(CI)F" `
-        "Administrators:(OI)(CI)F" | Out-Null
+        $currentUserGrant `
+        $systemGrant `
+        $administratorsGrant | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "设置备份目录权限失败：$BackupPath"
+    }
 }
 
 function Get-ProfilePath {
@@ -1100,8 +1111,10 @@ function New-Backup {
     $credentialCount = 0
     if ($IncludeLoginState) {
         $credentialCount = Protect-LoginState -BackupPath $result.destination
-        $backupName = Split-Path -Leaf $result.destination
-        $result = Invoke-Core -CoreAction "refresh-manifest" -Argument $backupName
+        if ($credentialCount -gt 0) {
+            $backupName = Split-Path -Leaf $result.destination
+            $result = Invoke-Core -CoreAction "refresh-manifest" -Argument $backupName
+        }
     }
     Set-BackupPermissions -BackupPath $(if ($result.destination) { $result.destination } else { Join-Path $backupDirectory $result.backupName })
 
@@ -1114,8 +1127,13 @@ function New-Backup {
 
     Write-Host ("  [完成] 文件校验通过：{0} 个" -f $verification.checked) -ForegroundColor Green
     if ($IncludeLoginState) {
-        Write-Host ("  [完成] 已加密登录与配置文件：{0} 个" -f $credentialCount) -ForegroundColor Green
-        Write-Host "  加密方式：Windows DPAPI，仅当前 Windows 用户可解密。"
+        if ($credentialCount -gt 0) {
+            Write-Host ("  [完成] 已加密登录与配置文件：{0} 个" -f $credentialCount) -ForegroundColor Green
+            Write-Host "  加密方式：Windows DPAPI，仅当前 Windows 用户可解密。"
+        }
+        else {
+            Write-Host "  [提示] 当前没有可加密的登录或配置文件，本次仅保存聊天与本地状态。" -ForegroundColor Yellow
+        }
     }
     Write-Host ("  保存位置：{0}" -f $backupPath)
 }
