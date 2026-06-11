@@ -1,0 +1,44 @@
+# macOS Version
+
+[中文说明](README-zh.md) | [Project README](../README.md)
+
+This folder contains the macOS build of Codex Chat History Manager.
+
+## Install
+
+Open Terminal in this folder and run:
+
+```bash
+chmod +x install.sh Codex-History-Manager.sh
+./install.sh
+```
+
+The installer copies the tool to:
+
+```text
+~/.codex/tools/history-manager-mac
+```
+
+and creates a desktop launcher:
+
+```text
+Codex-Chat-History-Manager.command
+```
+
+## Run
+
+```bash
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action status
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action backup
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action help
+```
+
+macOS credential backups use `credentials.keychain.json`, protected by a macOS Keychain-stored secret and OpenSSL AES-256-CBC.
+
+If the script cannot find runtime binaries, set:
+
+```bash
+export CODEX_NODE="/path/to/node"
+export CODEX_CLI="/path/to/codex"
+```

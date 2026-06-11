@@ -2,142 +2,213 @@
 
 English | [中文说明](README-zh.md)
 
-A Windows utility for backing up, restoring, and switching Codex Desktop chat history, ChatGPT login state, API Key login state, and custom OpenAI-compatible API configuration.
+A cross-platform utility for backing up, restoring, and switching Codex Desktop chat history, ChatGPT login state, API Key login state, and custom OpenAI-compatible API configuration.
 
-This project is designed for people who use Codex Desktop on Windows and want a safer way to:
+The project now provides two platform builds:
 
-- back up local Codex conversations;
-- back up login and configuration files with Windows DPAPI encryption;
-- switch between ChatGPT account login and custom API Key login;
-- keep ChatGPT and API Key history under the same `openai` provider;
-- configure a custom OpenAI-compatible `base_url`;
-- export a portable installer for another Windows computer.
+- `windows/`: Windows version, implemented with PowerShell and Windows DPAPI.
+- `mac/`: macOS version, implemented with Bash, macOS Keychain, and OpenSSL.
 
-> This tool does not include, upload, or publish your chat records, login credentials, API keys, backups, or personal Codex configuration.
+The original root-level Windows files are still kept for compatibility, so existing links and install instructions that use `install.cmd`, `install.ps1`, `Codex-History-Manager.ps1`, or `codex-history-core.mjs` will continue to work.
 
-## Features
+> This repository contains only manager scripts and documentation. It does not contain your chat records, login credentials, API keys, backups, or personal Codex configuration.
 
-- **Full backup**
-  Backs up chat history, archived sessions, attachments, session indexes, local state databases, `auth.json`, `.cockpit_codex_auth.json`, `config.toml`, and `.env`.
+## What It Does
 
-- **Credential encryption**
-  Login and configuration files are stored in a `credentials.dpapi.json` package encrypted with Windows DPAPI for the current Windows user.
+- Back up Codex Desktop local chat history and archived sessions.
+- Back up local state databases, attachments, and session indexes.
+- Encrypt login and configuration files in full backups.
+- Restore chat history from a selected backup.
+- Optionally restore login state and API configuration.
+- Save and switch between ChatGPT account login and custom API Key login profiles.
+- Keep both ChatGPT and API Key history under `model_provider = "openai"`.
+- Configure or clear a custom OpenAI-compatible `openai_base_url`.
+- Safely read API keys from clipboard, file, or hidden input.
+- Export a portable package for another machine.
 
-- **Restore workflow**
-  Restores chat history from a selected backup and optionally restores login state and API configuration. A new safety backup is created automatically before restore.
+## Platform Differences
 
-- **Login profile switcher**
-  Saves two encrypted login profiles: one for ChatGPT account login and one for custom API login. You can switch between them from the menu.
+| Platform | Main script | Installer | Credential protection | Installed path |
+| --- | --- | --- | --- | --- |
+| Windows | `windows/Codex-History-Manager.ps1` | `windows/install.cmd` | Windows DPAPI CurrentUser | `%USERPROFILE%\.codex\tools\history-manager` |
+| macOS | `mac/Codex-History-Manager.sh` | `mac/install.sh` | macOS Keychain + OpenSSL AES-256-CBC | `~/.codex/tools/history-manager-mac` |
 
-- **Custom API support**
-  Writes the recommended Codex configuration:
+Windows full backups use:
 
-  ```toml
-  model_provider = "openai"
-  openai_base_url = "https://your-api.example.com/v1"
+```text
+credentials.dpapi.json
+```
 
-  [desktop]
-  model_provider = "openai"
-  ```
+macOS full backups use:
 
-- **Secure API Key input**
-  Reads API keys from the clipboard, a `.txt`, `.key`, `.env`, or `.json` file, or hidden manual input. The key is passed to `codex login --with-api-key` through standard input.
+```text
+credentials.keychain.json
+```
 
-- **Network mode helper**
-  Helps custom API users choose direct connection or local proxy mode by editing `.env` proxy settings.
+Each encrypted package is intended for the same OS user that created it. A Windows DPAPI credential package cannot be decrypted on macOS, and a macOS Keychain credential package cannot be decrypted on Windows. Chat history files can still be restored independently when compatible with the Codex Desktop data layout.
 
-- **Portable installer export**
-  Creates a ZIP package containing only the tool scripts and documentation, not your private data.
+## Repository Layout
+
+```text
+.
+├─ windows/
+│  ├─ Codex-History-Manager.ps1
+│  ├─ codex-history-core.mjs
+│  ├─ install.cmd
+│  ├─ install.ps1
+│  └─ README-zh.md
+├─ mac/
+│  ├─ Codex-History-Manager.sh
+│  ├─ codex-history-core.mjs
+│  ├─ install.sh
+│  └─ README-zh.md
+├─ Codex-History-Manager.ps1      # compatibility Windows entry
+├─ codex-history-core.mjs         # shared core, compatibility copy
+├─ install.cmd                    # compatibility Windows installer
+├─ install.ps1                    # compatibility Windows installer
+├─ README.md
+└─ README-zh.md
+```
 
 ## Requirements
 
+### Windows
+
 - Windows
 - Codex Desktop installed
-- A valid Codex Desktop runtime, including the bundled `node.exe` and `codex.exe`
 - PowerShell
+- Codex Desktop bundled `node.exe` and `codex.exe`
 
-The tool uses the current user's Codex home directory:
+The Windows version manages:
 
 ```text
 %USERPROFILE%\.codex
 ```
 
-If your Codex data is stored somewhere else, set `CODEX_HOME` before running the tool.
+Set `CODEX_HOME` first if your Codex Home is somewhere else.
 
-## Installation
+### macOS
+
+- macOS
+- Codex Desktop installed
+- Bash
+- `security`, `openssl`, `curl`, and `open`, which are available on standard macOS installs
+- A usable `node` and `codex` command, either on `PATH` or discoverable inside the Codex app/runtime
+
+The macOS version manages:
+
+```text
+~/.codex
+```
+
+Set `CODEX_HOME` first if your Codex Home is somewhere else. If the script cannot find runtime binaries, set `CODEX_NODE` and/or `CODEX_CLI`.
+
+## Install on Windows
+
+Recommended:
 
 1. Download or clone this repository.
-2. Open the project folder.
+2. Open the `windows/` folder.
 3. Double-click `install.cmd`.
-4. After installation, use the desktop shortcut:
+4. Use the desktop shortcut:
 
    ```text
    Codex-Chat-History-Manager.cmd
    ```
 
-The installer copies the tool to:
+Compatibility install from the repository root still works:
 
 ```text
-%USERPROFILE%\.codex\tools\history-manager
+install.cmd
 ```
 
-and creates a desktop launcher.
+## Install on macOS
+
+1. Download or clone this repository.
+2. Open Terminal in the repository root.
+3. Run:
+
+   ```bash
+   cd mac
+   chmod +x install.sh Codex-History-Manager.sh
+   ./install.sh
+   ```
+
+4. Use the desktop launcher:
+
+   ```text
+   Codex-Chat-History-Manager.command
+   ```
+
+You can also run the installed script directly:
+
+```bash
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh
+```
 
 ## Quick Start
 
-### Open the interactive menu
+### Open the menu
 
-Double-click:
-
-```text
-Codex-Chat-History-Manager.cmd
-```
-
-or run:
+Windows:
 
 ```powershell
 Codex-Chat-History-Manager.cmd
 ```
 
-### Create a full backup
+macOS:
 
-In the main menu, choose:
-
-```text
-[2] Create full backup
+```bash
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh
 ```
 
-or run:
+### Create a full backup
+
+Windows:
 
 ```powershell
 Codex-Chat-History-Manager.cmd -Action backup
 ```
 
+macOS:
+
+```bash
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action backup
+```
+
 Backups are saved to:
+
+Windows:
 
 ```text
 %USERPROFILE%\.codex\chat-history-backups
 ```
 
+macOS:
+
+```text
+~/.codex/chat-history-backups
+```
+
 ### Check current status
+
+Windows:
 
 ```powershell
 Codex-Chat-History-Manager.cmd -Action status
 ```
 
-This shows the current login type, active login profile, configured API base URL, session count, backup count, and whether Codex is currently running.
+macOS:
 
-### View help
-
-```powershell
-Codex-Chat-History-Manager.cmd -Action help
+```bash
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action status
 ```
 
-## Main Menu Guide
+## Main Menu
 
 ```text
 [1] View chat, login, and API configuration status
-[2] Create full backup: chat + DPAPI-encrypted login state
+[2] Create full backup
 [3] Back up chat history only
 [4] View and verify existing backups
 [5] Restore backup
@@ -161,50 +232,26 @@ Codex-Chat-History-Manager.cmd -Action help
 1. Create a full backup before changing login or API settings.
 2. Create another full backup after switching ChatGPT accounts or API keys.
 3. Keep both ChatGPT login and API Key login under `model_provider = "openai"`.
-4. Use menu `[7]` for custom API addresses instead of creating a new provider.
+4. Use menu `[7]` for custom API addresses instead of creating another provider.
 5. Use menu `[P]` to save and switch between ChatGPT and custom API profiles.
 6. If a custom API repeatedly reconnects or streams slowly, use menu `[N]` to test direct/proxy mode.
 
-## Login Profile Switching
+## Custom API Configuration
 
-Open the profile menu:
+The manager writes the recommended Codex configuration:
 
-```text
-[P] ChatGPT / Custom API quick switch
+```toml
+model_provider = "openai"
+openai_base_url = "https://your-api.example.com/v1"
+
+[desktop]
+model_provider = "openai"
 ```
 
-Available actions:
+API Key input supports:
 
-```text
-[1] Save or update current ChatGPT login profile
-[2] Configure or update custom API profile
-[3] Switch to ChatGPT account login
-[4] Switch to custom API login
-[5] View profile status
-[6] Open ChatGPT credential import folder
-[7] Import ChatGPT credentials from import folder
-```
-
-Important:
-
-- Completely exit Codex Desktop before switching profiles.
-- Switching profiles restores encrypted login and configuration files.
-- Switching profiles does not replace or delete local chat history.
-
-## Custom API Setup
-
-Use menu `[P] -> [2]` for the easiest setup. The tool will:
-
-1. read your API Key;
-2. log in through Codex using `codex login --with-api-key`;
-3. set the custom API base URL;
-4. keep the provider as `openai`;
-5. save the state as the encrypted custom API profile.
-
-API Key input options:
-
-- Windows clipboard;
-- `.txt`, `.key`, `.env`, or `.json` file;
+- clipboard;
+- `.txt`, `.key`, `.env`, or `.json` files;
 - hidden manual input.
 
 Supported `.env` format:
@@ -221,36 +268,40 @@ Supported JSON fields:
 }
 ```
 
-The tool displays only the key length and last 4 characters for confirmation. Source files are not deleted automatically and may still contain plaintext keys.
+The tool only displays the key length and last 4 characters for confirmation. Source files are not deleted automatically.
 
 ## ChatGPT Credential Import
 
 The import folder is:
 
+Windows:
+
 ```text
 %USERPROFILE%\.codex\credential-import
 ```
 
-Use menu `[P] -> [6]` to open it.
+macOS:
 
-Place both files from the same already logged-in Codex environment into that folder:
+```text
+~/.codex/credential-import
+```
+
+Use menu `[P] -> [6]` to open the folder, then place both files from the same already logged-in Codex environment:
 
 ```text
 auth.json
 .cockpit_codex_auth.json
 ```
 
-Then completely exit Codex Desktop and choose:
+Fully quit Codex Desktop, then choose:
 
 ```text
 [P] -> [7]
 ```
 
-The tool will validate the files, create a full safety backup, import the credentials, clear the custom API base URL, and save the result as the encrypted ChatGPT profile.
-
 This is not a password login tool and does not bypass OpenAI authentication. Expired, signed-out, or server-revoked tokens cannot be made valid again by copying files.
 
-## Backup Details
+## Backup Contents
 
 A full backup can include:
 
@@ -266,48 +317,19 @@ A full backup can include:
 - `config.toml`
 - `.env`
 
-Each backup contains a SHA-256 manifest. After creating a backup, the tool verifies file integrity and tests DPAPI decryption when credentials are included.
+Each backup includes a SHA-256 manifest. After creating a backup, the tool verifies file integrity and tests credential decryption when the current platform can decrypt the package.
 
-DPAPI-encrypted credential packages are usually only decryptable by the same Windows user on the same computer.
+## Restore Notes
 
-## Restore
-
-Before restoring:
-
-1. Completely exit Codex Desktop.
-2. Open the manager.
-3. Choose menu `[5]`.
-4. Select a backup.
-5. Choose whether to restore only chat history or also login state and API configuration.
-
-The tool automatically creates a new full safety backup before restoring.
-
-Restoring old files does not make expired ChatGPT tokens or deleted API keys valid again.
-
-## Portable Export
-
-Use menu `[E]` or run:
-
-```powershell
-Codex-Chat-History-Manager.cmd -Action export-tool
-```
-
-The ZIP package is created under:
-
-```text
-%USERPROFILE%\.codex\tool-exports
-```
-
-The exported package contains only:
-
-- `Codex-History-Manager.ps1`
-- `codex-history-core.mjs`
-- documentation
-- installer scripts
-
-It does not contain your chat history, login credentials, API keys, backups, or personal configuration.
+- Fully quit Codex Desktop before restoring.
+- Restore creates a new full safety backup first.
+- You can restore chat history only, or restore login state and API configuration too.
+- Cross-platform credential packages are not interchangeable.
+- Restoring old files cannot reactivate expired ChatGPT tokens or deleted API keys.
 
 ## Command Line
+
+Windows:
 
 ```powershell
 Codex-Chat-History-Manager.cmd
@@ -319,38 +341,54 @@ Codex-Chat-History-Manager.cmd -Action save-chatgpt
 Codex-Chat-History-Manager.cmd -Action export-tool
 ```
 
-Direct PowerShell usage:
+macOS:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action status
+```bash
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action status
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action backup
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action help
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action profiles
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action save-chatgpt
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action export-tool
 ```
 
 ## Security Notes
 
 - The repository contains only tool code and documentation.
-- Full backups encrypt login and configuration files using Windows DPAPI CurrentUser scope.
-- DPAPI protection is tied to the current Windows user and usually the current computer.
+- Windows credentials are protected by Windows DPAPI CurrentUser.
+- macOS credentials are protected by a Keychain-stored secret and OpenSSL AES-256-CBC.
+- Credential packages are intended for the same OS user that created them.
 - API keys loaded from files remain plaintext in their original files unless you delete or protect those files yourself.
 - The tool does not force-close Codex Desktop. You must exit Codex manually before restore or login/profile changes.
-- A backup can restore files, but it cannot reactivate credentials that have been revoked by the service provider.
+- A backup can restore files, but it cannot reactivate credentials revoked by the service provider.
 
 ## Troubleshooting
 
 ### The tool says Codex is still running
 
-Exit Codex Desktop from the tray or taskbar, then retry. Restore and configuration changes require Codex to be fully closed.
+Exit Codex Desktop completely, then retry. Restore and configuration changes require Codex to be fully closed.
 
 ### History disappears after switching login methods
 
-Use menu `[6]` to fix unified history mode. The tool keeps both ChatGPT and API Key history under the `openai` provider so the history list is not filtered by a different provider name.
+Use menu `[6]` to fix unified history mode. The tool keeps both ChatGPT and API Key history under the `openai` provider.
 
 ### Custom API keeps reconnecting
 
 Use menu `[N]` to test and switch between direct connection and local proxy mode. After changing `.env`, fully exit and reopen Codex Desktop.
 
+### macOS cannot find node or codex
+
+Set one or both environment variables before running the script:
+
+```bash
+export CODEX_NODE="/path/to/node"
+export CODEX_CLI="/path/to/codex"
+```
+
 ### A restored login does not work
 
-The credential files may have been expired, signed out, revoked, or the API key may have been deleted by the provider. Restoring files cannot make invalid credentials valid again.
+The credential files may have expired, been signed out, been revoked, or the API key may have been deleted by the provider. Restoring files cannot make invalid credentials valid again.
 
 ## License
 
