@@ -554,6 +554,31 @@ read_top_level_base_url() {
   printf '%s' "$status_json" | json_get "openaiBaseUrl"
 }
 
+read_current_model_name() {
+  local config_path="$CODEX_HOME_DIR/config.toml"
+  [ -f "$config_path" ] || return 0
+  "$NODE_EXE" -e '
+const fs = require("node:fs");
+const configPath = process.argv[1];
+const lines = fs.readFileSync(configPath, "utf8").split(/\r?\n/);
+let section = "";
+for (const line of lines) {
+  const sectionMatch = line.match(/^\s*\[([^\]]+)\]\s*$/);
+  if (sectionMatch) {
+    section = sectionMatch[1];
+    continue;
+  }
+  if (!section) {
+    const match = line.match(/^\s*model\s*=\s*"(.+?)"\s*$/);
+    if (match) {
+      process.stdout.write(match[1].trim());
+      process.exit(0);
+    }
+  }
+}
+' "$config_path"
+}
+
 save_custom_api_profile_if_active() {
   if [[ "$(get_auth_mode)" == OpenAI\ API\ Key* ]]; then
     save_login_profile "custom-api" "自定义 API" >/dev/null || return 1
@@ -641,6 +666,104 @@ test_api_latency() {
   fi
 }
 
+test_responses_endpoint() {
+  local base_url="$1"
+  local api_key="$2"
+  local model="$3"
+  local mode="$4"
+  local uri="${base_url%/}/responses"
+  local payload tmp_body status start end elapsed
+  payload="$("$NODE_EXE" -e 'process.stdout.write(JSON.stringify({model: process.argv[1], input: "ping", max_output_tokens: 1, stream: false}))' "$model")"
+  tmp_body="$(mktemp)"
+  start="$(current_millis)"
+  if [ "$mode" = "proxy" ]; then
+    status="$(curl -sS -o "$tmp_body" -w '%{http_code}' --max-time 30 --proxy http://127.0.0.1:10808 -H "Authorization: Bearer $api_key" -H "Content-Type: application/json" -d "$payload" "$uri" 2>/dev/null || true)"
+  else
+    status="$(curl -sS -o "$tmp_body" -w '%{http_code}' --max-time 30 --noproxy '*' -H "Authorization: Bearer $api_key" -H "Content-Type: application/json" -d "$payload" "$uri" 2>/dev/null || true)"
+  fi
+  end="$(current_millis)"
+  elapsed=$((end - start))
+  local ok body
+  if [[ "$status" =~ ^[23] ]]; then
+    ok=1
+  else
+    ok=0
+  fi
+  body="$(head -c 300 "$tmp_body" | tr '\n' ' ')"
+  rm -f "$tmp_body"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$mode" "$ok" "${status:-000}" "$elapsed" "$body"
+}
+
+show_custom_api_compatibility() {
+  local base_url
+  base_url="$(read_top_level_base_url)" || return 1
+  if [ -z "$base_url" ]; then
+    echo "  [提示] 当前没有配置自定义 API 地址。"
+    return 0
+  fi
+
+  local auth_path="$CODEX_HOME_DIR/auth.json"
+  if [ ! -f "$auth_path" ]; then
+    echo "  [提示] 未找到 auth.json，无法检查 API 兼容性。"
+    return 0
+  fi
+  local api_key auth_mode
+  auth_mode="$(json_file_get "$auth_path" "auth_mode")"
+  if [ "$auth_mode" != "apikey" ] && [ "$auth_mode" != "api_key" ]; then
+    echo "  [提示] 当前不是 API Key 登录，跳过 API 兼容性检查。"
+    return 0
+  fi
+  api_key="$(json_file_get "$auth_path" "OPENAI_API_KEY")"
+  if [ -z "$api_key" ]; then
+    echo "  [提示] auth.json 中没有 API Key，无法检查 API 兼容性。"
+    return 0
+  fi
+
+  local model
+  model="$(read_current_model_name || true)"
+  if [ -z "$model" ]; then
+    read -r -p "  未在 config.toml 中找到 model，请输入要测试的模型名（例如 gpt-5.5） " model
+  fi
+  if [ -z "$model" ]; then
+    die "没有模型名，已取消兼容性检查。"
+    return 1
+  fi
+
+  printf "\n  自定义 API /v1/responses 兼容性检查\n"
+  printf "  地址：%s\n" "$base_url"
+  printf "  模型：%s\n" "$model"
+  local direct proxy
+  direct="$(test_responses_endpoint "$base_url" "$api_key" "$model" "direct")"
+  proxy="$(test_responses_endpoint "$base_url" "$api_key" "$model" "proxy")"
+  printf "  %-8s %-6s %-8s %-8s\n" "Mode" "Ok" "Status" "Ms"
+  printf "  %-8s %-6s %-8s %-8s\n" $(printf '%s' "$direct" | awk -F '\t' '{print $1, $2, $3, $4}')
+  printf "  %-8s %-6s %-8s %-8s\n" $(printf '%s' "$proxy" | awk -F '\t' '{print $1, $2, $3, $4}')
+
+  local row mode ok status ms body
+  for row in "$direct" "$proxy"; do
+    mode="$(printf '%s' "$row" | awk -F '\t' '{print $1}')"
+    ok="$(printf '%s' "$row" | awk -F '\t' '{print $2}')"
+    status="$(printf '%s' "$row" | awk -F '\t' '{print $3}')"
+    body="$(printf '%s' "$row" | cut -f5-)"
+    if [ "$ok" = "1" ]; then
+      echo "  [正常] $mode 路径可以调用 /v1/responses。"
+    elif [ "$status" = "503" ]; then
+      echo "  [服务不可用] $mode 路径返回 503：服务商上游暂不可用或该模型暂不可用。"
+    elif [ "$status" = "404" ] || [ "$status" = "405" ]; then
+      echo "  [不兼容] $mode 路径返回 $status：该服务可能不支持 Codex Desktop 需要的 /v1/responses。"
+    elif [ "$status" = "401" ] || [ "$status" = "403" ]; then
+      echo "  [认证失败] $mode 路径返回 $status：请检查 API Key 或服务商权限。"
+    elif [ "$status" = "400" ]; then
+      echo "  [请求被拒绝] $mode 路径返回 400：请检查模型名是否正确，或服务商是否兼容 Responses API 请求格式。"
+    else
+      echo "  [失败] $mode 路径调用失败，状态码：$status。"
+    fi
+    if [ -n "$body" ]; then
+      echo "    响应：$body"
+    fi
+  done
+}
+
 optimize_custom_api_network() {
   local base_url
   base_url="$(read_top_level_base_url)" || return 1
@@ -717,6 +840,7 @@ show_api_network_menu() {
     printf "    [2] 强制直连自定义 API 域名（加入 NO_PROXY）\n"
     printf "    [3] 强制走本机代理（从 NO_PROXY 移除该域名）\n"
     printf "    [4] 查看当前 .env 代理配置\n"
+    printf "    [5] 检查 /v1/responses 兼容性\n"
     printf "    [B] 返回\n\n"
     read -r -p "  请选择 " choice
     choice="$(printf '%s' "$choice" | tr '[:lower:]' '[:upper:]')"
@@ -744,6 +868,7 @@ show_api_network_menu() {
           echo "  未找到 .env。"
         fi
         ;;
+      5) show_custom_api_compatibility ;;
       B) return 0 ;;
       *) echo "  [提示] 输入无效。" ;;
     esac

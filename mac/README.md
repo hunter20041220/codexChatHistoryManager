@@ -37,6 +37,8 @@ Codex-Chat-History-Manager.command
 
 macOS credential backups use `credentials.keychain.json`, protected by a macOS Keychain-stored secret and OpenSSL AES-256-CBC.
 
+For custom API `503 Service Unavailable` errors after login, open menu `[N]` and choose `[5]` to test `/v1/responses` compatibility.
+
 If the script cannot find runtime binaries, set:
 
 ```bash

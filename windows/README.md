@@ -35,3 +35,5 @@ Codex-Chat-History-Manager.cmd -Action first-login
 ```
 
 Windows credential backups use `credentials.dpapi.json`, protected by Windows DPAPI CurrentUser.
+
+For custom API `503 Service Unavailable` errors after login, open menu `[N]` and choose `[5]` to test `/v1/responses` compatibility.

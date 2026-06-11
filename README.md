@@ -274,6 +274,8 @@ The tool only displays the key length and last 4 characters for confirmation. So
 
 For a fresh user with no existing Codex login, use menu `[0]` or `-Action first-login`. This skips the pre-login backup step and creates the first full backup after the API Key login succeeds. For an existing user, keep using menu `[8]`, which creates a safety backup before changing login state.
 
+If login succeeds but Codex later reports `503 Service Unavailable` on `/v1/responses`, the API key and local login state may be fine while the upstream API service is temporarily unavailable or the selected model is unavailable. Use `[N] -> [5]` to test whether the custom provider actually supports the `/v1/responses` endpoint required by Codex Desktop.
+
 ## ChatGPT Credential Import
 
 The import folder is:
@@ -382,6 +384,10 @@ Use menu `[6]` to fix unified history mode. The tool keeps both ChatGPT and API 
 ### Custom API keeps reconnecting
 
 Use menu `[N]` to test and switch between direct connection and local proxy mode. After changing `.env`, fully exit and reopen Codex Desktop.
+
+### Custom API returns 503 on `/v1/responses`
+
+Use menu `[N] -> [5]` to run the Responses API compatibility check. A `503` usually means the provider or upstream model is temporarily unavailable. A `404` or `405` usually means the provider does not support the `/v1/responses` endpoint that Codex Desktop needs.
 
 ### macOS cannot find node or codex
 

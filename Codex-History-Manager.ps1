@@ -223,6 +223,24 @@ function Get-CurrentOpenAiBaseUrl {
     return $match.Matches[0].Groups[1].Value.Trim()
 }
 
+function Get-CurrentModelName {
+    $configPath = Join-Path $codexHome "config.toml"
+    if (-not (Test-Path -LiteralPath $configPath)) {
+        return $null
+    }
+    $section = ""
+    foreach ($line in Get-Content -LiteralPath $configPath -Encoding UTF8) {
+        if ($line -match '^\s*\[([^\]]+)\]\s*$') {
+            $section = $Matches[1]
+            continue
+        }
+        if (-not $section -and $line -match '^\s*model\s*=\s*"(.+?)"\s*$') {
+            return $Matches[1].Trim()
+        }
+    }
+    return $null
+}
+
 function Get-EnvFileMap {
     $envPath = Join-Path $codexHome ".env"
     $map = [ordered]@{}
@@ -341,6 +359,138 @@ function Test-ApiEndpointLatency {
     }
 }
 
+function Read-HttpResponseBody {
+    param($Response)
+
+    try {
+        if (-not $Response) {
+            return ""
+        }
+        $stream = $Response.GetResponseStream()
+        if (-not $stream) {
+            return ""
+        }
+        $reader = [IO.StreamReader]::new($stream)
+        try {
+            return $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+        }
+    }
+    catch {
+        return ""
+    }
+}
+
+function Test-ApiResponsesEndpoint {
+    param(
+        [string]$BaseUrl,
+        [string]$ApiKey,
+        [string]$Model,
+        [string]$Mode
+    )
+
+    $uri = "$($BaseUrl.TrimEnd('/'))/responses"
+    $headers = @{ Authorization = "Bearer $ApiKey" }
+    $body = @{
+        model = $Model
+        input = "ping"
+        max_output_tokens = 1
+        stream = $false
+    } | ConvertTo-Json -Compress
+
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        if ($Mode -eq "proxy") {
+            $response = Invoke-WebRequest -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body $body -Proxy "http://127.0.0.1:10808" -TimeoutSec 30 -UseBasicParsing
+        }
+        else {
+            $response = Invoke-WebRequest -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body $body -TimeoutSec 30 -UseBasicParsing
+        }
+        $sw.Stop()
+        return [pscustomobject]@{ Mode = $Mode; Ok = $true; Status = $response.StatusCode; Ms = $sw.ElapsedMilliseconds; Error = ""; Body = "" }
+    }
+    catch {
+        $sw.Stop()
+        $response = $_.Exception.Response
+        $status = ""
+        if ($response -and $response.StatusCode) {
+            $status = [int]$response.StatusCode
+        }
+        $responseBody = Read-HttpResponseBody -Response $response
+        if ($responseBody.Length -gt 300) {
+            $responseBody = $responseBody.Substring(0, 300)
+        }
+        return [pscustomobject]@{ Mode = $Mode; Ok = $false; Status = $status; Ms = $sw.ElapsedMilliseconds; Error = $_.Exception.Message; Body = $responseBody }
+    }
+}
+
+function Show-CustomApiCompatibility {
+    $baseUrl = Get-CurrentOpenAiBaseUrl
+    if (-not $baseUrl) {
+        Write-Host "  [提示] 当前没有配置自定义 API 地址。" -ForegroundColor Yellow
+        return
+    }
+
+    $authPath = Join-Path $codexHome "auth.json"
+    if (-not (Test-Path -LiteralPath $authPath)) {
+        Write-Host "  [提示] 未找到 auth.json，无法检查 API 兼容性。" -ForegroundColor Yellow
+        return
+    }
+    $auth = Get-Content -LiteralPath $authPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ("$($auth.auth_mode)" -notin @("apikey", "api_key")) {
+        Write-Host "  [提示] 当前不是 API Key 登录，跳过 API 兼容性检查。" -ForegroundColor DarkGray
+        return
+    }
+    $apiKey = "$($auth.OPENAI_API_KEY)"
+    if ([string]::IsNullOrWhiteSpace($apiKey)) {
+        Write-Host "  [提示] auth.json 中没有 API Key，无法检查 API 兼容性。" -ForegroundColor Yellow
+        return
+    }
+
+    $model = Get-CurrentModelName
+    if ([string]::IsNullOrWhiteSpace($model)) {
+        $model = (Read-Host "  未在 config.toml 中找到 model，请输入要测试的模型名（例如 gpt-5.5）").Trim()
+    }
+    if ([string]::IsNullOrWhiteSpace($model)) {
+        throw "没有模型名，已取消兼容性检查。"
+    }
+
+    Write-Host ""
+    Write-Host "  自定义 API /v1/responses 兼容性检查" -ForegroundColor Cyan
+    Write-Host ("  地址：{0}" -f $baseUrl)
+    Write-Host ("  模型：{0}" -f $model)
+    $direct = Test-ApiResponsesEndpoint -BaseUrl $baseUrl -ApiKey $apiKey -Model $model -Mode "direct"
+    $proxy = Test-ApiResponsesEndpoint -BaseUrl $baseUrl -ApiKey $apiKey -Model $model -Mode "proxy"
+    @($direct, $proxy) | Select-Object Mode, Ok, Status, Ms | Format-Table -AutoSize | Out-Host
+
+    foreach ($result in @($direct, $proxy)) {
+        if ($result.Ok) {
+            Write-Host ("  [正常] {0} 路径可以调用 /v1/responses。" -f $result.Mode) -ForegroundColor Green
+            continue
+        }
+        if ($result.Status -eq 503) {
+            Write-Host ("  [服务不可用] {0} 路径返回 503：服务商上游暂不可用或该模型暂不可用。" -f $result.Mode) -ForegroundColor Yellow
+        }
+        elseif ($result.Status -in @(404, 405)) {
+            Write-Host ("  [不兼容] {0} 路径返回 {1}：该服务可能不支持 Codex Desktop 需要的 /v1/responses。" -f $result.Mode, $result.Status) -ForegroundColor Yellow
+        }
+        elseif ($result.Status -in @(401, 403)) {
+            Write-Host ("  [认证失败] {0} 路径返回 {1}：请检查 API Key 或服务商权限。" -f $result.Mode, $result.Status) -ForegroundColor Yellow
+        }
+        elseif ($result.Status -eq 400) {
+            Write-Host ("  [请求被拒绝] {0} 路径返回 400：请检查模型名是否正确，或服务商是否兼容 Responses API 请求格式。" -f $result.Mode) -ForegroundColor Yellow
+        }
+        else {
+            Write-Host ("  [失败] {0} 路径调用失败：{1}" -f $result.Mode, $result.Error) -ForegroundColor Yellow
+        }
+        if ($result.Body) {
+            Write-Host ("    响应：{0}" -f $result.Body) -ForegroundColor DarkGray
+        }
+    }
+}
+
 function Optimize-CustomApiNetwork {
     param([bool]$Interactive = $true)
 
@@ -412,6 +562,7 @@ function Show-ApiNetworkMenu {
         Write-Host "    [2] 强制直连自定义 API 域名（加入 NO_PROXY）"
         Write-Host "    [3] 强制走本机代理（从 NO_PROXY 移除该域名）"
         Write-Host "    [4] 查看当前 .env 代理配置"
+        Write-Host "    [5] 检查 /v1/responses 兼容性"
         Write-Host "    [B] 返回"
         Write-Host ""
         $rawChoice = Read-Host "  请选择"
@@ -441,6 +592,7 @@ function Show-ApiNetworkMenu {
                         Write-Host ("  {0,-12} {1}" -f $name, $value)
                     }
                 }
+                "5" { Show-CustomApiCompatibility }
                 "B" { return }
                 default { Write-Host "  [提示] 输入无效。" -ForegroundColor Yellow }
             }

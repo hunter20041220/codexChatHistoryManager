@@ -276,6 +276,8 @@ JSON 文件支持：
 
 如果这是一个全新的 Codex Home，还没有任何登录状态，请使用菜单 `[0]` 或 `-Action first-login`。这个流程会跳过登录前备份，等 API Key 登录成功后再创建第一份完整备份。已有登录状态的用户仍建议使用菜单 `[8]`，它会在修改登录状态前先创建安全备份。
 
+如果登录成功后 Codex 报 `/v1/responses` 的 `503 Service Unavailable`，通常说明 API Key 和本地登录状态已经成功，但自定义 API 服务商的上游临时不可用，或当前模型暂不可用。可以用 `[N] -> [5]` 检查该服务商是否支持 Codex Desktop 需要的 `/v1/responses` 端点。
+
 ## 从凭证文件导入 ChatGPT 登录
 
 导入目录：
@@ -430,6 +432,10 @@ macOS：
 ### 自定义 API 一直 reconnect 或响应很慢？
 
 使用菜单 `[N]` 自动测速并切换直连或本机代理模式。修改 `.env` 后，需要完全退出并重新打开 Codex Desktop 才会生效。
+
+### 自定义 API 在 `/v1/responses` 返回 503？
+
+使用菜单 `[N] -> [5]` 运行 Responses API 兼容性检查。`503` 通常表示服务商或上游模型临时不可用；`404` 或 `405` 通常表示服务商不支持 Codex Desktop 需要的 `/v1/responses` 端点。
 
 ### macOS 找不到 node 或 codex 怎么办？
 
