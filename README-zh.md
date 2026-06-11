@@ -440,6 +440,11 @@ export CODEX_CLI="/path/to/codex"
 
 对应的 ChatGPT 令牌可能已经过期、注销或被服务器撤销，API Key 也可能已经被服务商删除。恢复文件不能让无效凭证重新有效。
 
+## 作者
+
+- [hunter20041220](https://github.com/hunter20041220)
+- [Binpei-Hua](https://github.com/Binpei-Hua)
+
 ## 许可证
 
 当前仓库还没有指定开源许可证。如果你希望别人使用、分发或贡献代码，建议补充一个 LICENSE 文件。

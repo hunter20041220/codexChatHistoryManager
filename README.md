@@ -390,6 +390,11 @@ export CODEX_CLI="/path/to/codex"
 
 The credential files may have expired, been signed out, been revoked, or the API key may have been deleted by the provider. Restoring files cannot make invalid credentials valid again.
 
+## Authors
+
+- [hunter20041220](https://github.com/hunter20041220)
+- [Binpei-Hua](https://github.com/Binpei-Hua)
+
 ## License
 
 No license has been specified yet. Add a license before accepting external contributions or redistribution.
