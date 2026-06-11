@@ -31,6 +31,7 @@ Codex-Chat-History-Manager.cmd
 Codex-Chat-History-Manager.cmd -Action status
 Codex-Chat-History-Manager.cmd -Action backup
 Codex-Chat-History-Manager.cmd -Action help
+Codex-Chat-History-Manager.cmd -Action first-login
 ```
 
 Windows credential backups use `credentials.dpapi.json`, protected by Windows DPAPI CurrentUser.

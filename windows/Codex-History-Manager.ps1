@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet("menu", "status", "backup", "help", "profiles", "save-chatgpt", "export-tool")]
+    [ValidateSet("menu", "status", "backup", "help", "profiles", "save-chatgpt", "first-login", "export-tool")]
     [string]$Action = "menu"
 )
 
@@ -1277,6 +1277,39 @@ function Login-WithApiKey {
     New-Backup -IncludeLoginState $true
 }
 
+function FirstLogin-WithApiKey {
+    Assert-CodexClosed
+    Write-Host ""
+    Write-Host "  新用户首次 API Key 登录" -ForegroundColor Cyan
+    Write-Host "  适用于当前 Codex Home 还没有登录状态的新用户。" -ForegroundColor DarkGray
+    Write-Host "  这一步不会先创建登录前备份；登录成功后会自动创建完整备份。"
+
+    if ((Get-AuthMode) -notlike "未找到登录凭证") {
+        Write-Host "  [提示] 当前已经存在登录凭证。若要保留现有状态，请优先使用菜单 [8]。" -ForegroundColor Yellow
+        if ((Read-Host "  仍然继续首次登录流程？[Y/N]").Trim().ToUpperInvariant() -ne "Y") {
+            throw "已取消首次登录。"
+        }
+    }
+
+    $plainKey = Read-ApiKey
+    if (-not $plainKey) {
+        throw "已取消 API Key 登录。"
+    }
+    try {
+        $plainKey | & $codexExe login --with-api-key
+        if ($LASTEXITCODE -ne 0) {
+            throw "API Key 登录失败。"
+        }
+    }
+    finally {
+        $plainKey = $null
+    }
+
+    Write-Host "  [完成] API Key 登录成功。" -ForegroundColor Green
+    Write-Host "  如需调整自定义 API 的直连/代理模式，可稍后使用主菜单 [N]。"
+    New-Backup -IncludeLoginState $true
+}
+
 function Show-LoginStatus {
     Write-Host ""
     Write-Host "  Codex 登录状态" -ForegroundColor Cyan
@@ -1318,6 +1351,7 @@ function Show-Help {
     Write-Host '    配置结果使用：model_provider = "openai"'
     Write-Host '    并在顶层写入：openai_base_url = "https://地址/v1"'
     Write-Host "    登录仍通过 Codex 的 API Key 登录完成。"
+    Write-Host "    新用户第一次登录可用菜单 [0]，登录成功后再自动备份。"
     Write-Host "    菜单 [8] 会安全读取 API Key，并通过标准输入交给 Codex。"
     Write-Host "    更推荐使用 [P] -> [2] 一次配置 API 档案，以后直接一键切换。"
     Write-Host ""
@@ -1331,6 +1365,7 @@ function Show-Help {
     Write-Host '    Codex-Chat-History-Manager.cmd -Action backup'
     Write-Host '    Codex-Chat-History-Manager.cmd -Action help'
     Write-Host '    Codex-Chat-History-Manager.cmd -Action profiles'
+    Write-Host '    Codex-Chat-History-Manager.cmd -Action first-login'
     Write-Host '    Codex-Chat-History-Manager.cmd -Action export-tool'
     Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action status'
     Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action backup'
@@ -1353,6 +1388,7 @@ function Show-Menu {
     Write-Host "    [5] 恢复备份"
     Write-Host ""
     Write-Host "  登录与 API" -ForegroundColor Yellow
+    Write-Host "    [0] 新用户首次 API Key 登录（无登录状态时使用）"
     Write-Host "    [6] 修复统一历史模式（ChatGPT / API Key 共用）"
     Write-Host "    [7] 设置或清除自定义 API 地址"
     Write-Host "    [8] 安全输入 API Key 并登录"
@@ -1377,6 +1413,7 @@ switch ($Action) {
     "help" { Show-Help; exit }
     "profiles" { Show-LoginProfiles; exit }
     "save-chatgpt" { Save-CurrentChatGptProfile; exit }
+    "first-login" { FirstLogin-WithApiKey; exit }
     "export-tool" { Export-PortableToolPackage; exit }
 }
 
@@ -1388,6 +1425,7 @@ while ($true) {
         if ($null -eq $rawSelection) { break }
         $selection = $rawSelection.Trim().ToUpperInvariant()
         switch ($selection) {
+            "0" { FirstLogin-WithApiKey }
             "1" { Show-Status }
             "2" { New-Backup -IncludeLoginState $true }
             "3" { New-Backup -IncludeLoginState $false }

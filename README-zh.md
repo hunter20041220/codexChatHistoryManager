@@ -213,6 +213,7 @@ macOS：
 [4] 查看并校验已有备份
 [5] 恢复备份
 
+[0] 新用户首次 API Key 登录
 [6] 修复统一历史模式
 [7] 设置或清除自定义 API 地址
 [8] 安全输入 API Key 并登录
@@ -235,6 +236,7 @@ macOS：
 4. 自定义 API 地址使用菜单 `[7]`，不要创建另一个 Provider。
 5. 使用主菜单 `[P]` 保存并切换 ChatGPT 与自定义 API 两个登录档案。
 6. 自定义 API 出现反复 reconnect、响应慢或断流时，使用主菜单 `[N]` 切换网络模式。
+7. 完全没有登录状态的新用户，先用菜单 `[0]` 登录，登录成功后工具会自动创建第一份完整备份。
 
 ## 自定义 API 配置
 
@@ -271,6 +273,8 @@ JSON 文件支持：
 也支持顶层字段 `api_key`、`OPENAI_API_KEY` 或 `key`。
 
 读取后工具只显示 Key 的长度和末尾 4 位用于核对，不显示完整内容。源文件不会自动删除，其中的 Key 仍是明文，需要自行妥善保管或删除。
+
+如果这是一个全新的 Codex Home，还没有任何登录状态，请使用菜单 `[0]` 或 `-Action first-login`。这个流程会跳过登录前备份，等 API Key 登录成功后再创建第一份完整备份。已有登录状态的用户仍建议使用菜单 `[8]`，它会在修改登录状态前先创建安全备份。
 
 ## 从凭证文件导入 ChatGPT 登录
 
@@ -386,6 +390,7 @@ Codex-Chat-History-Manager.cmd -Action backup
 Codex-Chat-History-Manager.cmd -Action help
 Codex-Chat-History-Manager.cmd -Action profiles
 Codex-Chat-History-Manager.cmd -Action save-chatgpt
+Codex-Chat-History-Manager.cmd -Action first-login
 Codex-Chat-History-Manager.cmd -Action export-tool
 ```
 
@@ -398,6 +403,7 @@ macOS：
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action help
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action profiles
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action save-chatgpt
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action first-login
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action export-tool
 ```
 

@@ -32,6 +32,7 @@ Codex-Chat-History-Manager.command
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action status
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action backup
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action help
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action first-login
 ```
 
 macOS credential backups use `credentials.keychain.json`, protected by a macOS Keychain-stored secret and OpenSSL AES-256-CBC.

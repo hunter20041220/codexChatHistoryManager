@@ -213,6 +213,7 @@ macOS:
 [4] View and verify existing backups
 [5] Restore backup
 
+[0] First-time API Key login for a fresh user
 [6] Fix unified history mode
 [7] Set or clear custom API base URL
 [8] Safely enter API Key and log in
@@ -235,6 +236,7 @@ macOS:
 4. Use menu `[7]` for custom API addresses instead of creating another provider.
 5. Use menu `[P]` to save and switch between ChatGPT and custom API profiles.
 6. If a custom API repeatedly reconnects or streams slowly, use menu `[N]` to test direct/proxy mode.
+7. For a brand-new Codex Home with no login state yet, use menu `[0]` to log in first and create the first full backup after login succeeds.
 
 ## Custom API Configuration
 
@@ -269,6 +271,8 @@ Supported JSON fields:
 ```
 
 The tool only displays the key length and last 4 characters for confirmation. Source files are not deleted automatically.
+
+For a fresh user with no existing Codex login, use menu `[0]` or `-Action first-login`. This skips the pre-login backup step and creates the first full backup after the API Key login succeeds. For an existing user, keep using menu `[8]`, which creates a safety backup before changing login state.
 
 ## ChatGPT Credential Import
 
@@ -338,6 +342,7 @@ Codex-Chat-History-Manager.cmd -Action backup
 Codex-Chat-History-Manager.cmd -Action help
 Codex-Chat-History-Manager.cmd -Action profiles
 Codex-Chat-History-Manager.cmd -Action save-chatgpt
+Codex-Chat-History-Manager.cmd -Action first-login
 Codex-Chat-History-Manager.cmd -Action export-tool
 ```
 
@@ -350,6 +355,7 @@ macOS:
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action help
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action profiles
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action save-chatgpt
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action first-login
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action export-tool
 ```
 

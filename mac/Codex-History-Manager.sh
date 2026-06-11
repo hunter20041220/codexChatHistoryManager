@@ -10,7 +10,7 @@ while [ "$#" -gt 0 ]; do
       ACTION="${2:-menu}"
       shift 2
       ;;
-    menu|status|backup|help|profiles|save-chatgpt|export-tool)
+    menu|status|backup|help|profiles|save-chatgpt|first-login|export-tool)
       ACTION="$1"
       shift
       ;;
@@ -878,6 +878,36 @@ login_with_api_key() {
   new_backup true
 }
 
+first_login_with_api_key() {
+  assert_codex_closed || return 1
+  printf "\n  新用户首次 API Key 登录\n"
+  echo "  适用于当前 Codex Home 还没有登录状态的新用户。"
+  echo "  这一步不会先创建登录前备份；登录成功后会自动创建完整备份。"
+
+  if [[ "$(get_auth_mode)" != "未找到登录凭证" ]]; then
+    echo "  [提示] 当前已经存在登录凭证。若要保留现有状态，请优先使用菜单 [8]。"
+    local confirm
+    read -r -p "  仍然继续首次登录流程？[Y/N] " confirm
+    confirm="$(printf '%s' "$confirm" | tr '[:lower:]' '[:upper:]')"
+    if [ "$confirm" != "Y" ]; then
+      die "已取消首次登录。"
+      return 1
+    fi
+  fi
+
+  local plain_key
+  plain_key="$(read_api_key)" || { echo "  [取消] 已取消 API Key 登录。"; return 1; }
+  printf '%s\n' "$plain_key" | "$CODEX_EXE" login --with-api-key || {
+    plain_key=""
+    die "API Key 登录失败。"
+    return 1
+  }
+  plain_key=""
+  echo "  [完成] API Key 登录成功。"
+  echo "  如需调整自定义 API 的直连/代理模式，可稍后使用主菜单 [N]。"
+  new_backup true
+}
+
 configure_custom_api_profile() {
   assert_codex_closed || return 1
 
@@ -1395,6 +1425,7 @@ show_help() {
     配置结果使用：model_provider = "openai"
     并在顶层写入：openai_base_url = "https://地址/v1"
     登录仍通过 Codex 的 API Key 登录完成。
+    新用户第一次登录可用菜单 [0]，登录成功后再自动备份。
     菜单 [8] 会安全读取 API Key，并通过标准输入交给 Codex。
 
   命令行调用
@@ -1403,6 +1434,7 @@ show_help() {
     Codex-History-Manager.sh -Action backup
     Codex-History-Manager.sh -Action help
     Codex-History-Manager.sh -Action profiles
+    Codex-History-Manager.sh -Action first-login
     Codex-History-Manager.sh -Action export-tool
 
 --------------------------------------------------------------------------
@@ -1424,6 +1456,7 @@ show_menu() {
     [5] 恢复备份
 
   登录与 API
+    [0] 新用户首次 API Key 登录（无登录状态时使用）
     [6] 修复统一历史模式（ChatGPT / API Key 共用）
     [7] 设置或清除自定义 API 地址
     [8] 安全输入 API Key 并登录
@@ -1450,6 +1483,7 @@ run_action() {
     help) show_help ;;
     profiles) show_login_profiles ;;
     save-chatgpt) save_current_chatgpt_profile ;;
+    first-login) first_login_with_api_key ;;
     export-tool) export_portable_tool_package ;;
     *) return 2 ;;
   esac
@@ -1459,7 +1493,7 @@ init_runtimes || exit 1
 
 case "$ACTION" in
   menu) ;;
-  status|backup|help|profiles|save-chatgpt|export-tool)
+  status|backup|help|profiles|save-chatgpt|first-login|export-tool)
     run_action "$ACTION"
     exit $?
     ;;
@@ -1474,6 +1508,7 @@ while true; do
   read -r -p "  请选择功能 " selection
   selection="$(printf '%s' "$selection" | tr '[:lower:]' '[:upper:]')"
   case "$selection" in
+    0) first_login_with_api_key ;;
     1) show_status ;;
     2) new_backup true ;;
     3) new_backup false ;;
