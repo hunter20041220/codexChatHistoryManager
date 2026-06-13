@@ -250,8 +250,8 @@ function setOpenAiBaseUrl(baseUrl) {
   }
   normalized = normalized.replace(/\/+$/, "");
   const configPath = path.join(codexHome, "config.toml");
-  const original = fs.readFileSync(configPath, "utf8");
-  const lines = original.split(/\r?\n/);
+  const original = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
+  const lines = original ? original.split(/\r?\n/) : [];
   let section = "";
   let settingIndex = -1;
   let firstSectionIndex = lines.length;
@@ -272,8 +272,9 @@ function setOpenAiBaseUrl(baseUrl) {
   } else if (normalized) {
     lines.splice(firstSectionIndex, 0, `openai_base_url = "${normalized.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`);
   }
-  const backupPath = `${configPath}.history-manager-${Date.now()}.bak`;
-  fs.copyFileSync(configPath, backupPath);
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  const backupPath = fs.existsSync(configPath) ? `${configPath}.history-manager-${Date.now()}.bak` : "";
+  if (backupPath) fs.copyFileSync(configPath, backupPath);
   fs.writeFileSync(configPath, lines.join("\r\n"), "utf8");
   const unified = setUnifiedDesktopProvider();
   return { baseUrl: normalized, backupPath, providerChanged: unified.changed };
@@ -337,8 +338,8 @@ async function normalizeProvider(provider) {
 
 function setUnifiedDesktopProvider() {
   const configPath = path.join(codexHome, "config.toml");
-  const original = fs.readFileSync(configPath, "utf8");
-  const lines = original.split(/\r?\n/);
+  const original = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
+  const lines = original ? original.split(/\r?\n/) : [];
   let section = "";
   let changed = false;
   let found = false;
@@ -359,19 +360,205 @@ function setUnifiedDesktopProvider() {
   if (!found) {
     const desktopIndex = lines.findIndex((line) => /^\s*\[desktop\]\s*$/.test(line));
     if (desktopIndex < 0) {
-      lines.push("", "[desktop]", 'model_provider = "openai"');
+      if (lines.length && lines[lines.length - 1].trim()) lines.push("");
+      lines.push("[desktop]", 'model_provider = "openai"');
     } else {
       lines.splice(desktopIndex + 1, 0, 'model_provider = "openai"');
     }
     changed = true;
   }
   if (changed) {
-    const backupPath = `${configPath}.history-manager-${Date.now()}.bak`;
-    fs.copyFileSync(configPath, backupPath);
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    const backupPath = fs.existsSync(configPath) ? `${configPath}.history-manager-${Date.now()}.bak` : "";
+    if (backupPath) fs.copyFileSync(configPath, backupPath);
     fs.writeFileSync(configPath, lines.join("\r\n"), "utf8");
     return { changed, backupPath };
   }
   return { changed: false };
+}
+
+function hostFromUrl(url) {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function removeTopLevelOpenAiBaseUrl() {
+  const configPath = path.join(codexHome, "config.toml");
+  const previousBaseUrl = readTopLevelSetting("openai_base_url");
+  if (!fs.existsSync(configPath)) {
+    return { changed: false, previousBaseUrl, backupPath: "" };
+  }
+
+  const original = fs.readFileSync(configPath, "utf8");
+  const lines = original.split(/\r?\n/);
+  const output = [];
+  let section = "";
+  let changed = false;
+  for (const line of lines) {
+    const sectionMatch = line.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (sectionMatch) {
+      section = sectionMatch[1];
+      output.push(line);
+      continue;
+    }
+    if (!section && /^\s*openai_base_url\s*=/.test(line)) {
+      changed = true;
+      continue;
+    }
+    output.push(line);
+  }
+
+  if (!changed) {
+    return { changed: false, previousBaseUrl, backupPath: "" };
+  }
+
+  const backupPath = `${configPath}.history-manager-${Date.now()}.bak`;
+  fs.copyFileSync(configPath, backupPath);
+  fs.writeFileSync(configPath, output.join("\r\n"), "utf8");
+  return { changed: true, previousBaseUrl, backupPath };
+}
+
+function cleanupEnvForChatGpt(previousBaseUrl) {
+  const envPath = path.join(codexHome, ".env");
+  if (!fs.existsSync(envPath)) {
+    return { changed: false, backupPath: "", removedEnvKeys: [], removedNoProxyHosts: [] };
+  }
+
+  const apiEnvKeys = new Set([
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_BASE",
+    "OPENAI_API_HOST",
+    "OPENAI_API_URL",
+    "OPENAI_ORGANIZATION",
+    "OPENAI_ORG_ID",
+  ]);
+  const original = fs.readFileSync(envPath, "utf8");
+  const lines = original.split(/\r?\n/);
+  const output = [];
+  const removedEnvKeys = [];
+  const removedNoProxyHosts = [];
+  const hostsToRemove = new Set();
+  const previousHost = hostFromUrl(previousBaseUrl);
+  let changed = false;
+  if (previousHost) hostsToRemove.add(previousHost);
+
+  for (const line of lines) {
+    const envMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!envMatch || !apiEnvKeys.has(envMatch[1])) continue;
+    const value = envMatch[2].trim().replace(/^["']|["']$/g, "");
+    const host = hostFromUrl(value);
+    if (host) hostsToRemove.add(host);
+  }
+
+  for (const line of lines) {
+    const envMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/);
+    if (envMatch && apiEnvKeys.has(envMatch[1])) {
+      removedEnvKeys.push(envMatch[1]);
+      changed = true;
+      continue;
+    }
+
+    const noProxyMatch = line.match(/^\s*(NO_PROXY|no_proxy)\s*=\s*(.*?)\s*$/);
+    if (noProxyMatch && hostsToRemove.size) {
+      const quote = noProxyMatch[2].trim().startsWith("'") ? "'" : '"';
+      const items = noProxyMatch[2]
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const filtered = items.filter((item) => !hostsToRemove.has(item));
+      if (filtered.length !== items.length) {
+        for (const item of items) {
+          if (hostsToRemove.has(item)) removedNoProxyHosts.push(item);
+        }
+        output.push(`${noProxyMatch[1]}=${quote}${filtered.join(",")}${quote}`);
+        changed = true;
+        continue;
+      }
+    }
+
+    output.push(line);
+  }
+
+  if (!changed) {
+    return { changed: false, backupPath: "", removedEnvKeys: [], removedNoProxyHosts: [] };
+  }
+
+  const next = `${output.filter((line, index) => line || index < output.length - 1).join("\n")}\n`;
+  const backupPath = `${envPath}.history-manager-${Date.now()}.bak`;
+  fs.copyFileSync(envPath, backupPath);
+  fs.writeFileSync(envPath, next, "utf8");
+  return {
+    changed: true,
+    backupPath,
+    removedEnvKeys: [...new Set(removedEnvKeys)],
+    removedNoProxyHosts: [...new Set(removedNoProxyHosts)],
+  };
+}
+
+function removeApiAuthFilesForChatGpt() {
+  const authPath = path.join(codexHome, "auth.json");
+  if (!fs.existsSync(authPath)) {
+    return { removedAuthFiles: [], authMode: "" };
+  }
+
+  let authMode = "";
+  try {
+    const auth = JSON.parse(fs.readFileSync(authPath, "utf8").replace(/^\uFEFF/, ""));
+    authMode = String(auth.auth_mode || "");
+  } catch {
+    const removedAuthFiles = [];
+    for (const name of ["auth.json", ".cockpit_codex_auth.json"]) {
+      const filePath = path.join(codexHome, name);
+      if (fs.existsSync(filePath)) {
+        fs.rmSync(filePath, { force: true });
+        removedAuthFiles.push(name);
+      }
+    }
+    return { removedAuthFiles, authMode: "unreadable" };
+  }
+
+  if (authMode !== "apikey" && authMode !== "api_key") {
+    return { removedAuthFiles: [], authMode };
+  }
+
+  const removedAuthFiles = [];
+  for (const name of ["auth.json", ".cockpit_codex_auth.json"]) {
+    const filePath = path.join(codexHome, name);
+    if (fs.existsSync(filePath)) {
+      fs.rmSync(filePath, { force: true });
+      removedAuthFiles.push(name);
+    }
+  }
+  return { removedAuthFiles, authMode };
+}
+
+function prepareChatGptAccountMode(mode = "keep-auth") {
+  const baseUrlResult = removeTopLevelOpenAiBaseUrl();
+  const providerResult = setUnifiedDesktopProvider();
+  const envResult = cleanupEnvForChatGpt(baseUrlResult.previousBaseUrl);
+  const authResult = mode === "remove-api-auth"
+    ? removeApiAuthFilesForChatGpt()
+    : { removedAuthFiles: [], authMode: "" };
+
+  return {
+    previousBaseUrl: baseUrlResult.previousBaseUrl,
+    removedBaseUrl: baseUrlResult.changed,
+    configBackupPath: baseUrlResult.backupPath,
+    providerChanged: providerResult.changed,
+    providerBackupPath: providerResult.backupPath || "",
+    envBackupPath: envResult.backupPath,
+    removedEnvKeys: envResult.removedEnvKeys,
+    removedNoProxyHosts: envResult.removedNoProxyHosts,
+    removedAuthFiles: authResult.removedAuthFiles,
+    removedAuthMode: authResult.authMode,
+  };
 }
 
 let result;
@@ -402,6 +589,9 @@ switch (action) {
     break;
   case "set-base-url":
     result = setOpenAiBaseUrl(argument);
+    break;
+  case "prepare-chatgpt":
+    result = prepareChatGptAccountMode(argument || "keep-auth");
     break;
   default:
     throw new Error(`Unknown action: ${action}`);

@@ -10,7 +10,7 @@ while [ "$#" -gt 0 ]; do
       ACTION="${2:-menu}"
       shift 2
       ;;
-    menu|status|backup|help|profiles|save-chatgpt|first-login|export-tool)
+    menu|status|backup|help|profiles|save-chatgpt|first-login|chatgpt-login|export-tool)
       ACTION="$1"
       shift
       ;;
@@ -510,6 +510,42 @@ active_profile_label() {
     fi
   done
   printf '%s\n' "当前状态尚未保存为登录档案"
+}
+
+show_chatgpt_preparation_result() {
+  local result="$1"
+  CHM_PREPARE_RESULT="$result" "$NODE_EXE" -e '
+const result = JSON.parse(process.env.CHM_PREPARE_RESULT);
+if (result.previousBaseUrl) console.log(`  原自定义 API 地址：${result.previousBaseUrl}`);
+if (result.removedBaseUrl) console.log("  [完成] 已清除 config.toml 顶层 openai_base_url。");
+if (result.providerChanged) console.log("  [完成] 已确认桌面 Provider 使用 openai。");
+if ((result.removedEnvKeys || []).length) {
+  console.log(`  [完成] 已从 .env 移除 API 覆盖项：${result.removedEnvKeys.join(", ")}`);
+}
+if ((result.removedNoProxyHosts || []).length) {
+  console.log(`  [完成] 已从 NO_PROXY/no_proxy 移除自定义 API 域名：${result.removedNoProxyHosts.join(", ")}`);
+}
+if ((result.removedAuthFiles || []).length) {
+  console.log(`  [完成] 已移除 API Key 登录凭证文件：${result.removedAuthFiles.join(", ")}`);
+}
+if (!result.removedBaseUrl &&
+    !result.providerChanged &&
+    !(result.removedEnvKeys || []).length &&
+    !(result.removedNoProxyHosts || []).length &&
+    !(result.removedAuthFiles || []).length) {
+  console.log("  [正常] 未发现需要清理的自定义 API 残留。");
+}
+for (const backupPath of [result.configBackupPath, result.providerBackupPath, result.envBackupPath]) {
+  if (backupPath) console.log(`  配置备份：${backupPath}`);
+}
+'
+}
+
+prepare_chatgpt_account_mode() {
+  local mode="${1:-keep-auth}"
+  local result
+  result="$(invoke_core prepare-chatgpt "$mode")" || return 1
+  show_chatgpt_preparation_result "$result"
 }
 
 show_login_profiles() {
@@ -1076,6 +1112,42 @@ save_current_chatgpt_profile() {
   echo "  保存时间：$saved_at"
 }
 
+login_with_chatgpt_account() {
+  assert_codex_closed || return 1
+  printf "\n  切回 ChatGPT 账号登录（增强清理）\n"
+  echo "  会先创建完整备份，然后清理自定义 API 地址、API Key 环境变量和 API 登录凭证。"
+  echo "  清理后将调用 Codex 官方账号登录流程。"
+  local confirm
+  read -r -p "  确认继续？[Y/N] " confirm
+  confirm="$(printf '%s' "$confirm" | tr '[:lower:]' '[:upper:]')"
+  [ "$confirm" = "Y" ] || { die "已取消切回账号登录。"; return 1; }
+
+  new_backup true || return 1
+  prepare_chatgpt_account_mode remove-api-auth || return 1
+
+  printf "\n  正在启动 Codex 账号登录...\n"
+  "$CODEX_EXE" login --device-auth || {
+    echo "  [提示] device-auth 未完成，尝试打开默认账号登录流程。"
+    "$CODEX_EXE" login || {
+      die "Codex 账号登录未完成。你可以重新打开 Codex Desktop 后手动登录，API 残留已清理。"
+      return 1
+    }
+  }
+
+  prepare_chatgpt_account_mode keep-auth || return 1
+  if [[ "$(get_auth_mode)" != ChatGPT* ]]; then
+    die "登录命令已结束，但本地 auth.json 还不是 ChatGPT 账号模式。请重新打开 Codex Desktop 检查登录状态。"
+    return 1
+  fi
+
+  local metadata_path saved_at
+  metadata_path="$(save_login_profile "chatgpt" "当前 ChatGPT 账号")" || return 1
+  saved_at="$(json_file_get "$metadata_path" "savedAt")"
+  echo "  [完成] 已切回 ChatGPT 账号登录，并保存为账号档案。"
+  echo "  档案保存时间：$saved_at"
+  new_backup true
+}
+
 open_credential_import_directory() {
   mkdir -p "$CREDENTIAL_IMPORT_DIRECTORY"
   local readme_path="$CREDENTIAL_IMPORT_DIRECTORY/README.txt"
@@ -1087,7 +1159,7 @@ Place both files from the same ChatGPT account here:
 2. .cockpit_codex_auth.json
 
 Then fully quit Codex Desktop and choose:
-[P] -> [7] Import ChatGPT credentials from this folder
+[P] -> [8] Import ChatGPT credentials from this folder
 
 Do not place account passwords here. This folder only accepts credential files
 from an already logged-in Codex environment.
@@ -1148,7 +1220,7 @@ import_chatgpt_credentials() {
   cp "$CREDENTIAL_IMPORT_DIRECTORY/.cockpit_codex_auth.json" "$CODEX_HOME_DIR/.cockpit_codex_auth.json.history-manager.import"
   mv -f "$CODEX_HOME_DIR/.cockpit_codex_auth.json.history-manager.import" "$CODEX_HOME_DIR/.cockpit_codex_auth.json"
 
-  invoke_core set-base-url "" >/dev/null || return 1
+  prepare_chatgpt_account_mode keep-auth || return 1
   if [[ "$(get_auth_mode)" != ChatGPT* ]]; then
     die "凭证文件已复制，但登录类型校验失败。请使用刚才创建的完整备份恢复。"
     return 1
@@ -1184,6 +1256,10 @@ switch_login_profile() {
   restore_login_state "$package_path" || return 1
   if [ "$slot" = "chatgpt" ]; then
     label="ChatGPT 账号"
+    prepare_chatgpt_account_mode keep-auth || return 1
+    if [[ "$(get_auth_mode)" == ChatGPT* ]]; then
+      save_login_profile "chatgpt" "当前 ChatGPT 账号" >/dev/null || return 1
+    fi
   else
     label="自定义 API"
   fi
@@ -1206,8 +1282,9 @@ show_profile_menu() {
     printf "    [3] 一键切换到 ChatGPT 账号\n"
     printf "    [4] 一键切换到自定义 API\n"
     printf "    [5] 查看两个登录档案状态\n"
-    printf "    [6] 打开 ChatGPT 凭证导入文件夹\n"
-    printf "    [7] 从导入文件夹登录 ChatGPT 账号\n\n"
+    printf "    [6] 增强切回 ChatGPT 账号登录（清理 API 残留）\n"
+    printf "    [7] 打开 ChatGPT 凭证导入文件夹\n"
+    printf "    [8] 从导入文件夹登录 ChatGPT 账号\n\n"
     printf "    [B] 返回主菜单\n\n"
     local choice
     read -r -p "  请选择功能 " choice
@@ -1218,8 +1295,9 @@ show_profile_menu() {
       3) switch_login_profile chatgpt ;;
       4) switch_login_profile custom-api ;;
       5) show_login_profiles ;;
-      6) open_credential_import_directory ;;
-      7) import_chatgpt_credentials ;;
+      6) login_with_chatgpt_account ;;
+      7) open_credential_import_directory ;;
+      8) import_chatgpt_credentials ;;
       B) return 0 ;;
       *) echo "  [提示] 输入无效。" ;;
     esac
@@ -1538,7 +1616,8 @@ show_help() {
     2. ChatGPT 与 API Key 切换后，历史仍应统一使用 openai Provider。
     3. 使用自定义 API 地址时选择 [7]，不要再创建 openai_http Provider。
     4. 使用主菜单 [P] 保存两个登录档案并一键切换。
-    5. 已有合法 ChatGPT 凭证可放入 credential-import，再用 [P] -> [7] 导入。
+    5. 从 API 切回账号优先用 [P] -> [3]；没有账号档案时用 [P] -> [6]。
+    6. 已有合法 ChatGPT 凭证可放入 credential-import，再用 [P] -> [8] 导入。
 
   凭证安全
     完整备份包含 auth.json、桌面认证文件、config.toml 和 .env。
@@ -1560,6 +1639,7 @@ show_help() {
     Codex-History-Manager.sh -Action help
     Codex-History-Manager.sh -Action profiles
     Codex-History-Manager.sh -Action first-login
+    Codex-History-Manager.sh -Action chatgpt-login
     Codex-History-Manager.sh -Action export-tool
 
 --------------------------------------------------------------------------
@@ -1609,6 +1689,7 @@ run_action() {
     profiles) show_login_profiles ;;
     save-chatgpt) save_current_chatgpt_profile ;;
     first-login) first_login_with_api_key ;;
+    chatgpt-login) login_with_chatgpt_account ;;
     export-tool) export_portable_tool_package ;;
     *) return 2 ;;
   esac
@@ -1618,7 +1699,7 @@ init_runtimes || exit 1
 
 case "$ACTION" in
   menu) ;;
-  status|backup|help|profiles|save-chatgpt|first-login|export-tool)
+  status|backup|help|profiles|save-chatgpt|first-login|chatgpt-login|export-tool)
     run_action "$ACTION"
     exit $?
     ;;

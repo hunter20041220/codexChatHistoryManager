@@ -235,8 +235,9 @@ macOS：
 3. ChatGPT 登录和 API Key 登录都保持 `model_provider = "openai"`。
 4. 自定义 API 地址使用菜单 `[7]`，不要创建另一个 Provider。
 5. 使用主菜单 `[P]` 保存并切换 ChatGPT 与自定义 API 两个登录档案。
-6. 自定义 API 出现反复 reconnect、响应慢或断流时，使用主菜单 `[N]` 切换网络模式。
-7. 完全没有登录状态的新用户，先用菜单 `[0]` 登录，登录成功后工具会自动创建第一份完整备份。
+6. 从自定义 API 切回 ChatGPT 账号时，已有账号档案优先用 `[P] -> [3]`；没有账号档案时用 `[P] -> [6]` 清理 API 残留并启动账号登录。
+7. 自定义 API 出现反复 reconnect、响应慢或断流时，使用主菜单 `[N]` 切换网络模式。
+8. 完全没有登录状态的新用户，先用菜单 `[0]` 登录，登录成功后工具会自动创建第一份完整备份。
 
 ## 自定义 API 配置
 
@@ -278,6 +279,13 @@ JSON 文件支持：
 
 如果登录成功后 Codex 报 `/v1/responses` 的 `503 Service Unavailable`，通常说明 API Key 和本地登录状态已经成功，但自定义 API 服务商的上游临时不可用，或当前模型暂不可用。可以用 `[N] -> [5]` 检查该服务商是否支持 Codex Desktop 需要的 `/v1/responses` 端点。
 
+## 从 API 切回 ChatGPT 账号登录
+
+如果之前使用过自定义 API，现在要恢复正常 ChatGPT 账号登录，请先完全退出 Codex Desktop。
+
+- 如果已经保存过 ChatGPT 账号档案，使用 `[P] -> [3]`。工具会恢复账号凭证，并清理 `openai_base_url`、`.env` 里的 OpenAI API 覆盖项，以及 `NO_PROXY/no_proxy` 里的自定义 API 域名。
+- 如果没有保存过 ChatGPT 账号档案，使用 `[P] -> [6]`。工具会先创建完整备份，移除 API Key 登录凭证和自定义 API 覆盖配置，然后启动 Codex 官方账号登录流程。
+
 ## 从凭证文件导入 ChatGPT 登录
 
 导入目录：
@@ -304,7 +312,7 @@ auth.json
 完全退出 Codex Desktop 后选择：
 
 ```text
-[P] -> [7]
+[P] -> [8]
 ```
 
 工具会先校验文件结构，再创建完整安全备份，导入凭证，清除自定义 API 地址，并把新状态保存为加密的 ChatGPT 档案。
@@ -393,6 +401,7 @@ Codex-Chat-History-Manager.cmd -Action help
 Codex-Chat-History-Manager.cmd -Action profiles
 Codex-Chat-History-Manager.cmd -Action save-chatgpt
 Codex-Chat-History-Manager.cmd -Action first-login
+Codex-Chat-History-Manager.cmd -Action chatgpt-login
 Codex-Chat-History-Manager.cmd -Action export-tool
 ```
 
@@ -406,6 +415,7 @@ macOS：
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action profiles
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action save-chatgpt
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action first-login
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action chatgpt-login
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action export-tool
 ```
 

@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet("menu", "status", "backup", "help", "profiles", "save-chatgpt", "first-login", "export-tool")]
+    [ValidateSet("menu", "status", "backup", "help", "profiles", "save-chatgpt", "first-login", "chatgpt-login", "export-tool")]
     [string]$Action = "menu"
 )
 
@@ -848,6 +848,50 @@ function Get-ActiveProfileLabel {
     return "当前状态尚未保存为登录档案"
 }
 
+function Show-ChatGptPreparationResult {
+    param($Result)
+
+    if ($Result.previousBaseUrl) {
+        Write-Host ("  原自定义 API 地址：{0}" -f $Result.previousBaseUrl) -ForegroundColor DarkGray
+    }
+    if ($Result.removedBaseUrl) {
+        Write-Host "  [完成] 已清除 config.toml 顶层 openai_base_url。" -ForegroundColor Green
+    }
+    if ($Result.providerChanged) {
+        Write-Host "  [完成] 已确认桌面 Provider 使用 openai。" -ForegroundColor Green
+    }
+    if (@($Result.removedEnvKeys).Count -gt 0) {
+        Write-Host ("  [完成] 已从 .env 移除 API 覆盖项：{0}" -f (@($Result.removedEnvKeys) -join ", ")) -ForegroundColor Green
+    }
+    if (@($Result.removedNoProxyHosts).Count -gt 0) {
+        Write-Host ("  [完成] 已从 NO_PROXY/no_proxy 移除自定义 API 域名：{0}" -f (@($Result.removedNoProxyHosts) -join ", ")) -ForegroundColor Green
+    }
+    if (@($Result.removedAuthFiles).Count -gt 0) {
+        Write-Host ("  [完成] 已移除 API Key 登录凭证文件：{0}" -f (@($Result.removedAuthFiles) -join ", ")) -ForegroundColor Green
+    }
+    if (-not $Result.removedBaseUrl -and
+        -not $Result.providerChanged -and
+        @($Result.removedEnvKeys).Count -eq 0 -and
+        @($Result.removedNoProxyHosts).Count -eq 0 -and
+        @($Result.removedAuthFiles).Count -eq 0) {
+        Write-Host "  [正常] 未发现需要清理的自定义 API 残留。" -ForegroundColor DarkGray
+    }
+    foreach ($path in @($Result.configBackupPath, $Result.providerBackupPath, $Result.envBackupPath)) {
+        if ($path) {
+            Write-Host ("  配置备份：{0}" -f $path) -ForegroundColor DarkGray
+        }
+    }
+}
+
+function Prepare-ChatGptAccountMode {
+    param([switch]$RemoveApiAuth)
+
+    $mode = if ($RemoveApiAuth) { "remove-api-auth" } else { "keep-auth" }
+    $result = Invoke-Core -CoreAction "prepare-chatgpt" -Argument $mode
+    Show-ChatGptPreparationResult -Result $result
+    return $result
+}
+
 function Show-LoginProfiles {
     $profiles = @(Get-LoginProfiles)
     Write-Host ""
@@ -890,6 +934,12 @@ function Switch-LoginProfile {
     New-Backup -IncludeLoginState $true
     Restore-LoginState -PackagePath $packagePath
     $label = if ($Slot -eq "chatgpt") { "ChatGPT 账号" } else { "自定义 API" }
+    if ($Slot -eq "chatgpt") {
+        [void](Prepare-ChatGptAccountMode)
+        if ((Get-AuthMode) -like "ChatGPT*") {
+            [void](Save-LoginProfile -Slot "chatgpt" -Label "当前 ChatGPT 账号")
+        }
+    }
     Write-Host ("  [完成] 已切换到：{0}" -f $label) -ForegroundColor Green
     if ($Slot -eq "custom-api") {
         Optimize-CustomApiNetwork -Interactive $true
@@ -1068,6 +1118,41 @@ function Save-CurrentChatGptProfile {
     Write-Host ("  保存时间：{0}" -f $metadata.savedAt)
 }
 
+function Login-WithChatGptAccount {
+    Assert-CodexClosed
+    Write-Host ""
+    Write-Host "  切回 ChatGPT 账号登录（增强清理）" -ForegroundColor Cyan
+    Write-Host "  会先创建完整备份，然后清理自定义 API 地址、API Key 环境变量和 API 登录凭证。" -ForegroundColor DarkGray
+    Write-Host "  清理后将调用 Codex 官方账号登录流程。"
+    if ((Read-Host "  确认继续？[Y/N]").Trim().ToUpperInvariant() -ne "Y") {
+        throw "已取消切回账号登录。"
+    }
+
+    New-Backup -IncludeLoginState $true
+    [void](Prepare-ChatGptAccountMode -RemoveApiAuth)
+
+    Write-Host ""
+    Write-Host "  正在启动 Codex 账号登录..." -ForegroundColor Cyan
+    & $codexExe login --device-auth
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [提示] device-auth 未完成，尝试打开默认账号登录流程。" -ForegroundColor Yellow
+        & $codexExe login
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Codex 账号登录未完成。你可以重新打开 Codex Desktop 后手动登录，API 残留已清理。"
+    }
+
+    [void](Prepare-ChatGptAccountMode)
+    if ((Get-AuthMode) -notlike "ChatGPT*") {
+        throw "登录命令已结束，但本地 auth.json 还不是 ChatGPT 账号模式。请重新打开 Codex Desktop 检查登录状态。"
+    }
+
+    $metadata = Save-LoginProfile -Slot "chatgpt" -Label "当前 ChatGPT 账号"
+    Write-Host "  [完成] 已切回 ChatGPT 账号登录，并保存为账号档案。" -ForegroundColor Green
+    Write-Host ("  档案保存时间：{0}" -f $metadata.savedAt)
+    New-Backup -IncludeLoginState $true
+}
+
 function Open-CredentialImportDirectory {
     New-Item -ItemType Directory -Force -Path $credentialImportDirectory | Out-Null
     $readmePath = Join-Path $credentialImportDirectory "请放入凭证文件.txt"
@@ -1079,7 +1164,7 @@ function Open-CredentialImportDirectory {
 2. .cockpit_codex_auth.json
 
 然后完全退出 Codex Desktop，在管理器中选择：
-[P] -> [7] 从导入文件夹登录 ChatGPT 账号
+[P] -> [8] 从导入文件夹登录 ChatGPT 账号
 
 不要放账号密码。这里只接受已经登录后导出的 Codex 凭证文件。
 导入前工具会校验 JSON，不会在屏幕或日志中显示令牌。
@@ -1158,7 +1243,7 @@ function Import-ChatGptCredentials {
         Move-Item -LiteralPath $temporary -Destination $item.Destination -Force
     }
 
-    [void](Invoke-Core -CoreAction "set-base-url" -Argument "")
+    [void](Prepare-ChatGptAccountMode)
     if ((Get-AuthMode) -notlike "ChatGPT*") {
         throw "凭证文件已复制，但登录类型校验失败。请使用刚才创建的完整备份恢复。"
     }
@@ -1193,8 +1278,9 @@ function Show-ProfileMenu {
         Write-Host "    [3] 一键切换到 ChatGPT 账号"
         Write-Host "    [4] 一键切换到自定义 API"
         Write-Host "    [5] 查看两个登录档案状态"
-        Write-Host "    [6] 打开 ChatGPT 凭证导入文件夹"
-        Write-Host "    [7] 从导入文件夹登录 ChatGPT 账号"
+        Write-Host "    [6] 增强切回 ChatGPT 账号登录（清理 API 残留）"
+        Write-Host "    [7] 打开 ChatGPT 凭证导入文件夹"
+        Write-Host "    [8] 从导入文件夹登录 ChatGPT 账号"
         Write-Host ""
         Write-Host "    [B] 返回主菜单"
         Write-Host ""
@@ -1208,8 +1294,9 @@ function Show-ProfileMenu {
                 "3" { Switch-LoginProfile -Slot "chatgpt" }
                 "4" { Switch-LoginProfile -Slot "custom-api" }
                 "5" { Show-LoginProfiles }
-                "6" { Open-CredentialImportDirectory }
-                "7" { Import-ChatGptCredentials }
+                "6" { Login-WithChatGptAccount }
+                "7" { Open-CredentialImportDirectory }
+                "8" { Import-ChatGptCredentials }
                 "B" { return }
                 default { Write-Host "  [提示] 输入无效。" -ForegroundColor Yellow }
             }
@@ -1490,7 +1577,8 @@ function Show-Help {
     Write-Host "    2. ChatGPT 与 API Key 切换后，历史仍应统一使用 openai Provider。"
     Write-Host "    3. 使用自定义 API 地址时选择 [7]，不要再创建 openai_http Provider。"
     Write-Host "    4. 使用主菜单 [P] 保存两个登录档案并一键切换。"
-    Write-Host "    5. 已有合法 ChatGPT 凭证可放入 credential-import，再用 [P] -> [7] 导入。"
+    Write-Host "    5. 从 API 切回账号优先用 [P] -> [3]；没有账号档案时用 [P] -> [6]。"
+    Write-Host "    6. 已有合法 ChatGPT 凭证可放入 credential-import，再用 [P] -> [8] 导入。"
     Write-Host ""
     Write-Host "  凭证安全" -ForegroundColor Yellow
     Write-Host "    完整备份包含 auth.json、桌面认证文件、config.toml 和 .env。"
@@ -1518,6 +1606,7 @@ function Show-Help {
     Write-Host '    Codex-Chat-History-Manager.cmd -Action help'
     Write-Host '    Codex-Chat-History-Manager.cmd -Action profiles'
     Write-Host '    Codex-Chat-History-Manager.cmd -Action first-login'
+    Write-Host '    Codex-Chat-History-Manager.cmd -Action chatgpt-login'
     Write-Host '    Codex-Chat-History-Manager.cmd -Action export-tool'
     Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action status'
     Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action backup'
@@ -1566,6 +1655,7 @@ switch ($Action) {
     "profiles" { Show-LoginProfiles; exit }
     "save-chatgpt" { Save-CurrentChatGptProfile; exit }
     "first-login" { FirstLogin-WithApiKey; exit }
+    "chatgpt-login" { Login-WithChatGptAccount; exit }
     "export-tool" { Export-PortableToolPackage; exit }
 }
 

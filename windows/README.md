@@ -36,4 +36,6 @@ Codex-Chat-History-Manager.cmd -Action first-login
 
 Windows credential backups use `credentials.dpapi.json`, protected by Windows DPAPI CurrentUser.
 
+To switch from a custom API back to ChatGPT account login, use `[P] -> [3]` if a ChatGPT profile is saved, or `[P] -> [6]` to clean API leftovers and start account login.
+
 For custom API `503 Service Unavailable` errors after login, open menu `[N]` and choose `[5]` to test `/v1/responses` compatibility.

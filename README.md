@@ -235,8 +235,9 @@ macOS:
 3. Keep both ChatGPT login and API Key login under `model_provider = "openai"`.
 4. Use menu `[7]` for custom API addresses instead of creating another provider.
 5. Use menu `[P]` to save and switch between ChatGPT and custom API profiles.
-6. If a custom API repeatedly reconnects or streams slowly, use menu `[N]` to test direct/proxy mode.
-7. For a brand-new Codex Home with no login state yet, use menu `[0]` to log in first and create the first full backup after login succeeds.
+6. When switching from a custom API back to a ChatGPT account, use `[P] -> [3]` if you already saved a ChatGPT profile, or `[P] -> [6]` to clean API leftovers and start the account login flow.
+7. If a custom API repeatedly reconnects or streams slowly, use menu `[N]` to test direct/proxy mode.
+8. For a brand-new Codex Home with no login state yet, use menu `[0]` to log in first and create the first full backup after login succeeds.
 
 ## Custom API Configuration
 
@@ -276,6 +277,13 @@ For a fresh user with no existing Codex login, use menu `[0]` or `-Action first-
 
 If login succeeds but Codex later reports `503 Service Unavailable` on `/v1/responses`, the API key and local login state may be fine while the upstream API service is temporarily unavailable or the selected model is unavailable. Use `[N] -> [5]` to test whether the custom provider actually supports the `/v1/responses` endpoint required by Codex Desktop.
 
+## Switching Back To ChatGPT
+
+If you previously used a custom API and want to return to normal ChatGPT account login, fully quit Codex Desktop first.
+
+- If you already saved a ChatGPT profile, use `[P] -> [3]`. The manager restores the account credentials and clears custom API leftovers such as `openai_base_url`, OpenAI API variables in `.env`, and the custom API host in `NO_PROXY`.
+- If you do not have a saved ChatGPT profile, use `[P] -> [6]`. The manager creates a full backup, removes API Key login credentials and custom API overrides, then starts the Codex account login flow.
+
 ## ChatGPT Credential Import
 
 The import folder is:
@@ -302,7 +310,7 @@ auth.json
 Fully quit Codex Desktop, then choose:
 
 ```text
-[P] -> [7]
+[P] -> [8]
 ```
 
 This is not a password login tool and does not bypass OpenAI authentication. Expired, signed-out, or server-revoked tokens cannot be made valid again by copying files.
@@ -345,6 +353,7 @@ Codex-Chat-History-Manager.cmd -Action help
 Codex-Chat-History-Manager.cmd -Action profiles
 Codex-Chat-History-Manager.cmd -Action save-chatgpt
 Codex-Chat-History-Manager.cmd -Action first-login
+Codex-Chat-History-Manager.cmd -Action chatgpt-login
 Codex-Chat-History-Manager.cmd -Action export-tool
 ```
 
@@ -358,6 +367,7 @@ macOS:
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action profiles
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action save-chatgpt
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action first-login
+~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action chatgpt-login
 ~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action export-tool
 ```
 
