@@ -17,7 +17,9 @@ New-Item -ItemType Directory -Force -Path $desktopDirectory | Out-Null
 $desktopEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager.cmd"
 $desktopScript = @"
 @echo off
+cd /d "%USERPROFILE%\.codex\tools\history-manager"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" %*
+if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopEntry, $desktopScript, [Text.ASCIIEncoding]::new())
 

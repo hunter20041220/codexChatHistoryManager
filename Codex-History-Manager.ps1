@@ -55,7 +55,9 @@ New-Item -ItemType Directory -Force -Path $desktopDirectory | Out-Null
 $desktopEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager.cmd"
 $desktopScript = @"
 @echo off
+cd /d "%USERPROFILE%\.codex\tools\history-manager"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" %*
+if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopEntry, $desktopScript, [Text.ASCIIEncoding]::new())
 
@@ -121,20 +123,115 @@ function Export-PortableToolPackage {
 function Find-CodexRuntime {
     param([string]$FileName)
 
-    $roots = @(
-        (Join-Path $env:LOCALAPPDATA "OpenAI\Codex\bin"),
-        (Join-Path $env:LOCALAPPDATA "OpenAI\Codex\runtimes")
-    )
-    $candidate = foreach ($root in $roots) {
-        if (Test-Path -LiteralPath $root) {
-            Get-ChildItem -LiteralPath $root -Filter $FileName -File -Recurse -ErrorAction SilentlyContinue
+    $override = if ($FileName -eq "node.exe") { $env:CODEX_NODE } else { $env:CODEX_CLI }
+    $candidates = [Collections.Generic.List[string]]::new()
+    $searchRoots = [Collections.Generic.List[string]]::new()
+
+    function Add-Candidate {
+        param([string]$Path)
+        if (-not [string]::IsNullOrWhiteSpace($Path) -and -not $candidates.Contains($Path)) {
+            $candidates.Add($Path)
         }
     }
-    $result = $candidate | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if (-not $result) {
-        throw "未找到 Codex 自带的 $FileName。"
+
+    function Add-SearchRoot {
+        param([string]$Path)
+        if (-not [string]::IsNullOrWhiteSpace($Path) -and
+            (Test-Path -LiteralPath $Path -PathType Container) -and
+            -not $searchRoots.Contains($Path)) {
+            $searchRoots.Add($Path)
+        }
     }
-    return $result.FullName
+
+    if ($override) {
+        Add-Candidate -Path $override
+    }
+
+    $codexCommand = Get-Command "codex.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($codexCommand -and $codexCommand.Source) {
+        $codexDirectory = Split-Path -Parent $codexCommand.Source
+        if ($FileName -eq "codex.exe") {
+            Add-Candidate -Path $codexCommand.Source
+        }
+        Add-SearchRoot -Path $codexDirectory
+        Add-SearchRoot -Path (Join-Path $codexDirectory "cua_node")
+        Add-SearchRoot -Path (Join-Path $codexDirectory "cua_node\bin")
+    }
+
+    foreach ($root in @(
+            $toolDirectory,
+            $PSScriptRoot,
+            (Join-Path $env:LOCALAPPDATA "OpenAI\Codex"),
+            (Join-Path $env:LOCALAPPDATA "OpenAI"),
+            (Join-Path $env:LOCALAPPDATA "Programs\OpenAI Codex"),
+            (Join-Path $env:LOCALAPPDATA "Programs\Codex"),
+            (Join-Path $env:LOCALAPPDATA "Programs\OpenAI\Codex"),
+            (Join-Path $env:APPDATA "OpenAI\Codex"),
+            (Join-Path $env:ProgramFiles "OpenAI\Codex"),
+            (Join-Path ${env:ProgramFiles(x86)} "OpenAI\Codex")
+        )) {
+        Add-SearchRoot -Path $root
+    }
+
+    $windowsApps = Join-Path $env:ProgramFiles "WindowsApps"
+    if (Test-Path -LiteralPath $windowsApps -PathType Container) {
+        Get-ChildItem -LiteralPath $windowsApps -Directory -Filter "OpenAI.Codex_*" -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                Add-SearchRoot -Path $_.FullName
+                Add-SearchRoot -Path (Join-Path $_.FullName "app\resources")
+                Add-SearchRoot -Path (Join-Path $_.FullName "app\resources\cua_node")
+                Add-SearchRoot -Path (Join-Path $_.FullName "app\resources\cua_node\bin")
+            }
+    }
+
+    foreach ($root in $searchRoots) {
+        Add-Candidate -Path (Join-Path $root $FileName)
+        Add-Candidate -Path (Join-Path $root "bin\$FileName")
+        Add-Candidate -Path (Join-Path $root "resources\$FileName")
+        Add-Candidate -Path (Join-Path $root "resources\cua_node\bin\$FileName")
+        Add-Candidate -Path (Join-Path $root "app\resources\$FileName")
+        Add-Candidate -Path (Join-Path $root "app\resources\cua_node\bin\$FileName")
+    }
+
+    foreach ($root in $searchRoots) {
+        if (Test-Path -LiteralPath $root) {
+            Get-ChildItem -LiteralPath $root -Filter $FileName -File -Recurse -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                ForEach-Object { Add-Candidate -Path $_.FullName }
+        }
+    }
+
+    if ($FileName -eq "node.exe") {
+        $nodeCommand = Get-Command "node.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($nodeCommand -and $nodeCommand.Source) {
+            Add-Candidate -Path $nodeCommand.Source
+        }
+    }
+
+    foreach ($candidate in $candidates) {
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            continue
+        }
+        if ($FileName -eq "node.exe") {
+            try {
+                & $candidate --disable-warning=ExperimentalWarning -e "import('node:sqlite').then(()=>process.exit(0)).catch(()=>process.exit(1))" 2>$null
+            }
+            catch {
+                continue
+            }
+            if ($LASTEXITCODE -ne 0) {
+                continue
+            }
+        }
+        return (Resolve-Path -LiteralPath $candidate).Path
+    }
+
+    $hint = if ($FileName -eq "node.exe") {
+        "请先完整打开一次 Codex Desktop；如果仍失败，请安装 Node.js 22+ 或 24+，然后设置环境变量 CODEX_NODE 指向 node.exe。"
+    } else {
+        "请先完整打开一次 Codex Desktop；如果仍失败，请设置环境变量 CODEX_CLI 指向 Codex 的 codex.exe。"
+    }
+    throw "未找到可用的 $FileName。$hint"
 }
 
 $nodeExe = Find-CodexRuntime -FileName "node.exe"
