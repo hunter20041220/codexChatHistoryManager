@@ -36,7 +36,7 @@ Codex-Chat-History-Manager.cmd -Action first-login
 
 Windows credential backups use `credentials.dpapi.json`, protected by Windows DPAPI CurrentUser.
 
-If the launcher says `node.exe` or `codex.exe` cannot be found, open Codex Desktop once, then run `install.cmd` again.
+If the launcher says `node.exe` or `codex.exe` cannot be found, open Codex Desktop once, then run `install.cmd` again. The installer copies Codex's bundled Node runtime when available.
 
 To switch from a custom API back to ChatGPT account login, use `[P] -> [3]` if a ChatGPT profile is saved, or `[P] -> [6]` to clean API leftovers and start account login.
 

@@ -70,7 +70,7 @@ Codex-Chat-History-Manager.cmd -Action chatgpt-login
 
 ## 常见问题
 
-- 提示找不到 `node.exe` 或 `codex.exe`：先完整打开一次 Codex Desktop，再重新安装本工具；仍失败时设置 `CODEX_NODE` 或 `CODEX_CLI`。
+- 提示找不到 `node.exe` 或 `codex.exe`：先完整打开一次 Codex Desktop，再重新安装本工具。安装器会尽量自动复制 Codex 自带的 Node；仍失败时设置 `CODEX_NODE` 或 `CODEX_CLI`。
 - 自定义 API 在 `/v1/responses` 返回 `503`：通常是服务商或上游模型不可用，用 `[N] -> [5]` 检查。
 - 恢复时提示 Codex 正在运行：请从托盘或菜单完全退出 Codex Desktop。
 - 恢复登录后仍不能用：令牌或 API Key 可能已过期、注销、被撤销或删除，恢复文件不能让失效凭证重新有效。

@@ -70,7 +70,7 @@ The enhanced cleanup removes custom API leftovers such as `openai_base_url`, Ope
 
 ## Troubleshooting
 
-- `node.exe` or `codex.exe` not found: open Codex Desktop once, then reinstall this tool. If it still fails, set `CODEX_NODE` or `CODEX_CLI`.
+- `node.exe` or `codex.exe` not found: open Codex Desktop once, then reinstall this tool. The installer copies Codex's bundled Node runtime when available. If it still fails, set `CODEX_NODE` or `CODEX_CLI`.
 - Custom API returns `503` on `/v1/responses`: the provider or upstream model is usually unavailable. Use `[N] -> [5]`.
 - Restore says Codex is running: fully quit Codex Desktop from the tray/menu.
 - Restored login still fails: the token or API key may be expired, signed out, revoked, or deleted by the provider.
