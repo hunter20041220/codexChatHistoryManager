@@ -20,31 +20,23 @@ elif [ -f "$SOURCE_DIR/../README-zh.md" ]; then
 fi
 
 chmod +x "$TARGET/Codex-History-Manager.sh"
-if [ -f "$SOURCE_DIR/Codex-Chat-History-Manager-UI.command" ]; then
-  cp "$SOURCE_DIR/Codex-Chat-History-Manager-UI.command" "$TARGET/"
-  chmod +x "$TARGET/Codex-Chat-History-Manager-UI.command"
+if [ -f "$SOURCE_DIR/Codex-Chat-History-Manager.command" ]; then
+  cp "$SOURCE_DIR/Codex-Chat-History-Manager.command" "$TARGET/"
+  chmod +x "$TARGET/Codex-Chat-History-Manager.command"
 fi
+rm -f "$TARGET/Codex-Chat-History-Manager-UI.command"
 
 DESKTOP="$HOME/Desktop"
 mkdir -p "$DESKTOP"
 LAUNCHER="$DESKTOP/Codex-Chat-History-Manager.command"
 cat > "$LAUNCHER" <<LAUNCHER_EOF
 #!/usr/bin/env bash
-"$TARGET/Codex-History-Manager.sh" "\$@"
-printf "\\n"
-read -r -p "Press Enter to close..."
+"$TARGET/Codex-Chat-History-Manager.command"
 LAUNCHER_EOF
 chmod +x "$LAUNCHER"
-
-UI_LAUNCHER="$DESKTOP/Codex-Chat-History-Manager-UI.command"
-cat > "$UI_LAUNCHER" <<LAUNCHER_EOF
-#!/usr/bin/env bash
-"$TARGET/Codex-Chat-History-Manager-UI.command"
-LAUNCHER_EOF
-chmod +x "$UI_LAUNCHER"
+rm -f "$DESKTOP/Codex-Chat-History-Manager-UI.command"
 
 echo ""
 echo "Installed to: $TARGET"
 echo "Desktop launcher: $LAUNCHER"
-echo "Desktop UI launcher: $UI_LAUNCHER"
 echo ""

@@ -2,59 +2,57 @@
 
 [English](README.md) | 中文说明
 
-这是一个给 Codex Desktop 使用的 Windows/macOS 桌面工具，提供本地桌面 UI，用来管理聊天备份、备份恢复、ChatGPT 账号档案切换、自定义 API Key 登录、自定义 API 网络检测，以及统一历史记录修复。
+这是一个给 Codex Desktop 使用的本地 Windows/macOS 桌面管理器，用来管理聊天记录、备份恢复、账号登录状态和自定义 API 配置。
 
-> 仓库只包含工具脚本和说明，不包含你的聊天记录、登录凭证、API Key、备份或个人配置。
+> 仓库只包含工具脚本、UI 素材和说明文档，不包含你的聊天记录、登录凭证、API Key、备份或个人 Codex 配置。
 
-## 桌面 UI
+## 安装
 
-推荐使用桌面 UI：
+Windows：
 
-- Windows：运行 `windows/install.cmd`，然后打开桌面带乌萨奇图标的 `Codex-Chat-History-Manager-UI.lnk`。
-- macOS：运行 `mac/install.sh`，然后打开桌面的 `Codex-Chat-History-Manager-UI.command`。
+```powershell
+.\windows\install.cmd
+```
 
-原来的命令行启动器仍会安装，方便高级排查和备用。
+安装后桌面只会生成一个带乌萨奇图标的入口：`Codex-Chat-History-Manager`。
 
-UI 会从指定 LINE Store 页面本地导入乌萨奇贴图预览：
+macOS：
 
-https://store.line.me/stickershop/product/21802595/ja
+```bash
+cd mac
+chmod +x install.sh Codex-History-Manager.sh Codex-Chat-History-Manager.command
+./install.sh
+```
 
-只使用“乌萨奇为主体”的公开预览图。筛选后的图片已经放在各平台的 `ui/assets/line-usagi/`，仅用于本项目的本地个人学习、非商用 UI 原型展示。详见 [ASSET-NOTICE-zh.md](ASSET-NOTICE-zh.md)。
+安装后打开桌面的 `Codex-Chat-History-Manager.command`。
 
-UI 里也可以点击“重新导入 LINE 乌萨奇贴图”，把同一批素材刷新到本机 `ui/private-assets/`。
+## 主要功能
+
+- 完整备份、仅聊天备份、备份校验和恢复。
+- 保存并切换 ChatGPT 账号登录档案。
+- API Key 登录，支持完全新用户的首次登录流程。
+- 从 API Key 切回 ChatGPT 账号登录时清理 API 残留。
+- 设置自定义 API 地址并检查 `/v1/responses` 网络兼容性。
+- 修复统一历史记录模式，让 ChatGPT/API Key 会话一起显示。
+- 本地桌面 UI，内置乌萨奇贴图预览素材。
 
 ## 目录结构
 
 ```text
-windows/   Windows 源码、安装器、命令行启动器、桌面 UI 源码
-mac/       macOS 源码、安装器、命令行启动器、桌面 UI 源码
-install.cmd  兼容旧用法，转发到 windows/install.cmd
+windows/     Windows 源码、安装器、内部启动器、桌面 UI
+mac/         macOS 源码、安装器、内部启动器、桌面 UI
+install.cmd  兼容入口，会转发到 windows/install.cmd
 ```
 
-## 主要功能
+Windows 会把内部启动器安装到 `%USERPROFILE%\.codex\tools\history-manager\Codex-Chat-History-Manager.cmd`，不会把 `.cmd` 放到桌面。桌面只保留一个 `Codex-Chat-History-Manager` 快捷方式。
 
-- 创建完整备份或仅聊天记录备份。
-- 校验和恢复备份，可选择恢复加密登录状态。
-- 在已保存的 ChatGPT 账号档案和自定义 API 档案之间切换。
-- 使用 API Key 登录，也支持全新用户首次登录流程。
-- 从自定义 API 切回 ChatGPT 账号时清理 API 残留。
-- 设置或清除自定义 API 地址。
-- 检查 `/v1/responses` 兼容性和自定义 API 网络模式。
-- 修复统一历史模式，让 ChatGPT/API Key 会话一起显示。
+## 乌萨奇素材
 
-## UI 调研
+内置乌萨奇图片来自指定 LINE Store 页面公开展示的贴图预览：
 
-我调研了可用 Codex skill 和桌面 UI 项目：
+https://store.line.me/stickershop/product/21802595/ja
 
-| 方案 | Stars | 适配情况 |
-| --- | ---: | --- |
-| Electron | 121,622 | 跨平台桌面 UI 生态最成熟 |
-| Tauri | 107,852 | 很强的跨平台方案 |
-| NW.js | 41,184 | 成熟，但本项目不优先 |
-| Neutralino | 8,541 | 轻量，但生态较小 |
-| OpenAI `winui-app` skill | openai/skills: 22,118 | 已安装到本机；偏 Windows 原生指导 |
-
-本项目的 UI 使用无 npm 依赖的本地桌面 Web 壳，通过 Node 启动并调用现有 Windows/macOS 脚本。这样既有桌面 UI，又不要求用户额外安装 npm 包。
+项目只保留乌萨奇为主体的预览图，素材位于各平台 `ui/assets/line-usagi/`，仅用于本地个人学习和非商业 UI 原型展示。说明见 [ASSET-NOTICE-zh.md](ASSET-NOTICE-zh.md)。
 
 ## 作者
 
@@ -63,4 +61,4 @@ install.cmd  兼容旧用法，转发到 windows/install.cmd
 
 ## 许可证
 
-当前仓库还没有指定开源许可证。
+当前仓库尚未指定开源许可证。

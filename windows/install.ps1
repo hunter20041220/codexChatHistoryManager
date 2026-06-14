@@ -143,17 +143,9 @@ if ([string]::IsNullOrWhiteSpace($desktopDirectory)) {
     $desktopDirectory = Join-Path $env:USERPROFILE "Desktop"
 }
 New-Item -ItemType Directory -Force -Path $desktopDirectory | Out-Null
-$desktopEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager.cmd"
-$desktopScript = @"
-@echo off
-cd /d "%USERPROFILE%\.codex\tools\history-manager"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" %*
-if errorlevel 1 pause
-"@
-[IO.File]::WriteAllText($desktopEntry, $desktopScript, [Text.ASCIIEncoding]::new())
 
-$desktopUiEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.cmd"
-$desktopUiScript = @"
+$toolLauncher = Join-Path $target "Codex-Chat-History-Manager.cmd"
+$toolLauncherScript = @"
 @echo off
 cd /d "%USERPROFILE%\.codex\tools\history-manager"
 set "NODE_EXE=%USERPROFILE%\.codex\tools\history-manager\runtime\node.exe"
@@ -164,7 +156,8 @@ if exist "%NODE_EXE%" (
 )
 if errorlevel 1 pause
 "@
-[IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
+[IO.File]::WriteAllText($toolLauncher, $toolLauncherScript, [Text.ASCIIEncoding]::new())
+Remove-Item -LiteralPath (Join-Path $target "Codex-Chat-History-Manager-UI.cmd") -Force -ErrorAction SilentlyContinue
 
 $iconPath = Join-Path $target "ui\assets\line-usagi\app-icon.ico"
 if (-not (Test-Path -LiteralPath $iconPath)) {
@@ -173,22 +166,29 @@ if (-not (Test-Path -LiteralPath $iconPath)) {
 if (-not (Test-Path -LiteralPath $iconPath)) {
     $iconPath = Join-Path $target "ui\assets\app-icon.ico"
 }
-if (Test-Path -LiteralPath $iconPath) {
-    $shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk"
-    $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = $desktopUiEntry
-    $shortcut.WorkingDirectory = $target
-    $shortcut.IconLocation = $iconPath
-    $shortcut.Description = "Codex Chat History Manager Desktop UI"
-    $shortcut.Save()
+
+$legacyDesktopEntries = @(
+    "Codex-Chat-History-Manager.cmd",
+    "Codex-Chat-History-Manager-UI.cmd",
+    "Codex-Chat-History-Manager-UI.lnk"
+)
+foreach ($entry in $legacyDesktopEntries) {
+    Remove-Item -LiteralPath (Join-Path $desktopDirectory $entry) -Force -ErrorAction SilentlyContinue
 }
+
+$shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager.lnk"
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = $toolLauncher
+$shortcut.WorkingDirectory = $target
+if (Test-Path -LiteralPath $iconPath) {
+    $shortcut.IconLocation = $iconPath
+}
+$shortcut.Description = "Codex Chat History Manager"
+$shortcut.Save()
 
 Write-Host ""
 Write-Host "Installed to: $target" -ForegroundColor Green
-Write-Host "Desktop shortcut: $desktopEntry" -ForegroundColor Green
-Write-Host "Desktop UI shortcut: $desktopUiEntry" -ForegroundColor Green
-if (Test-Path -LiteralPath (Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")) {
-    Write-Host "Desktop UI icon shortcut: $(Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")" -ForegroundColor Green
-}
+Write-Host "Launcher: $toolLauncher" -ForegroundColor Green
+Write-Host "Desktop shortcut: $shortcutPath" -ForegroundColor Green
 Write-Host ""

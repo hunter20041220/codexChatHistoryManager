@@ -238,7 +238,7 @@ function setupActions() {
 
   $("#quitButton").addEventListener("click", async () => {
     await fetch("/api/quit", { method: "POST" });
-    document.body.innerHTML = "<main class='shell'><section class='workspace'><h2>UI 服务已关闭</h2></section></main>";
+    document.body.innerHTML = "<main class='shell'><section class='workspace'><h2>服务已关闭</h2></section></main>";
   });
 }
 

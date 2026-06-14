@@ -310,7 +310,7 @@ const server = createServer(async (req, res) => {
 server.listen(0, "127.0.0.1", () => {
   const address = server.address();
   const url = `http://127.0.0.1:${address.port}/`;
-  console.log(`Codex Chat History Manager UI: ${url}`);
+  console.log(`Codex-Chat-History-Manager: ${url}`);
   openBrowser(url);
 });
 

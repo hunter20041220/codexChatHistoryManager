@@ -182,17 +182,9 @@ if ([string]::IsNullOrWhiteSpace($desktopDirectory)) {
     $desktopDirectory = Join-Path $env:USERPROFILE "Desktop"
 }
 New-Item -ItemType Directory -Force -Path $desktopDirectory | Out-Null
-$desktopEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager.cmd"
-$desktopScript = @"
-@echo off
-cd /d "%USERPROFILE%\.codex\tools\history-manager"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" %*
-if errorlevel 1 pause
-"@
-[IO.File]::WriteAllText($desktopEntry, $desktopScript, [Text.ASCIIEncoding]::new())
 
-$desktopUiEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.cmd"
-$desktopUiScript = @"
+$toolLauncher = Join-Path $target "Codex-Chat-History-Manager.cmd"
+$toolLauncherScript = @"
 @echo off
 cd /d "%USERPROFILE%\.codex\tools\history-manager"
 set "NODE_EXE=%USERPROFILE%\.codex\tools\history-manager\runtime\node.exe"
@@ -203,7 +195,8 @@ if exist "%NODE_EXE%" (
 )
 if errorlevel 1 pause
 "@
-[IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
+[IO.File]::WriteAllText($toolLauncher, $toolLauncherScript, [Text.ASCIIEncoding]::new())
+Remove-Item -LiteralPath (Join-Path $target "Codex-Chat-History-Manager-UI.cmd") -Force -ErrorAction SilentlyContinue
 
 $iconPath = Join-Path $target "ui\assets\line-usagi\app-icon.ico"
 if (-not (Test-Path -LiteralPath $iconPath)) {
@@ -212,41 +205,48 @@ if (-not (Test-Path -LiteralPath $iconPath)) {
 if (-not (Test-Path -LiteralPath $iconPath)) {
     $iconPath = Join-Path $target "ui\assets\app-icon.ico"
 }
-if (Test-Path -LiteralPath $iconPath) {
-    $shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk"
-    $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = $desktopUiEntry
-    $shortcut.WorkingDirectory = $target
-    $shortcut.IconLocation = $iconPath
-    $shortcut.Description = "Codex Chat History Manager Desktop UI"
-    $shortcut.Save()
+
+$legacyDesktopEntries = @(
+    "Codex-Chat-History-Manager.cmd",
+    "Codex-Chat-History-Manager-UI.cmd",
+    "Codex-Chat-History-Manager-UI.lnk"
+)
+foreach ($entry in $legacyDesktopEntries) {
+    Remove-Item -LiteralPath (Join-Path $desktopDirectory $entry) -Force -ErrorAction SilentlyContinue
 }
+
+$shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager.lnk"
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = $toolLauncher
+$shortcut.WorkingDirectory = $target
+if (Test-Path -LiteralPath $iconPath) {
+    $shortcut.IconLocation = $iconPath
+}
+$shortcut.Description = "Codex Chat History Manager"
+$shortcut.Save()
 
 Write-Host ""
 Write-Host "Installed to: $target" -ForegroundColor Green
-Write-Host "Desktop shortcut: $desktopEntry" -ForegroundColor Green
-Write-Host "Desktop UI shortcut: $desktopUiEntry" -ForegroundColor Green
-if (Test-Path -LiteralPath (Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")) {
-    Write-Host "Desktop UI icon shortcut: $(Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")" -ForegroundColor Green
-}
+Write-Host "Launcher: $toolLauncher" -ForegroundColor Green
+Write-Host "Desktop shortcut: $shortcutPath" -ForegroundColor Green
 Write-Host ""
 '@
     [IO.File]::WriteAllText((Join-Path $PackageDirectory "install.ps1"), $powerShellInstallScript, [Text.UTF8Encoding]::new($true))
 
     $readme = @"
-# Codex 聊天与登录管理器便携包
+# Codex Chat History Manager Portable Package
 
-安装：
+Install:
+1. Make sure Codex Desktop has been opened at least once.
+2. Extract this package.
+3. Double-click `install.cmd`.
+4. Open the Desktop shortcut `Codex-Chat-History-Manager`.
 
-1. 确认本机已经安装 Codex Desktop。
-2. 解压本压缩包。
-3. 双击 `install.cmd`。
-4. 双击桌面的 `Codex-Chat-History-Manager-UI.lnk` 使用桌面 UI；也可用 `Codex-Chat-History-Manager.cmd` 打开命令行版本。
+The internal launcher is installed at `%USERPROFILE%\.codex\tools\history-manager\Codex-Chat-History-Manager.cmd`.
+It stays inside the installed tool folder; the Desktop only gets the one shortcut above.
 
-本包只包含管理器脚本和说明，不包含导出者的聊天记录、登录凭证、API Key、备份或个人配置。
-
-工具默认服务当前 Windows 用户的 `%USERPROFILE%\.codex`。如果需要指定其他 Codex Home，可先设置环境变量 `CODEX_HOME`。
+This package contains only tool scripts, UI assets, and documentation. It does not contain chats, credentials, API keys, backups, or personal Codex config.
 "@
     [IO.File]::WriteAllText((Join-Path $PackageDirectory "README.md"), $readme, [Text.UTF8Encoding]::new($true))
 }
@@ -2129,17 +2129,13 @@ function Show-Help {
     Write-Host "    恢复前会自动创建新的完整安全备份。"
     Write-Host ""
     Write-Host "  命令行调用" -ForegroundColor Yellow
-    Write-Host '    Codex-Chat-History-Manager.cmd'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action status'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action backup'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action help'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action profiles'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action first-login'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action chatgpt-login'
-    Write-Host '    Codex-Chat-History-Manager.cmd -Action export-tool'
-    Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action status'
-    Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action backup'
-    Write-Host '    powershell -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action help'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action status'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action backup'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action help'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action profiles'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action first-login'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action chatgpt-login'
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\tools\history-manager\Codex-History-Manager.ps1" -Action export-tool'
     Write-Host ""
     Write-Host ("-" * 74) -ForegroundColor DarkGray
 }

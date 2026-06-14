@@ -6,23 +6,26 @@ Install:
 .\install.cmd
 ```
 
-Launch:
+After installation, the Desktop only contains one Usagi-icon shortcut:
 
-- Desktop UI: `Codex-Chat-History-Manager-UI.lnk` with the Usagi-style icon
-- Fallback UI command: `Codex-Chat-History-Manager-UI.cmd`
-- Classic CLI: `Codex-Chat-History-Manager.cmd`
+```text
+Codex-Chat-History-Manager
+```
 
-The installer copies Codex Desktop's bundled `node.exe` into `%USERPROFILE%\.codex\tools\history-manager\runtime\node.exe` when available, so users usually do not need to install Node manually.
+The internal launcher is installed at:
+
+```text
+%USERPROFILE%\.codex\tools\history-manager\Codex-Chat-History-Manager.cmd
+```
+
+It is kept inside the installed tool folder and is not copied to the Desktop.
 
 Source layout:
 
 ```text
-Codex-History-Manager.ps1   Windows backend and CLI
+Codex-History-Manager.ps1   Windows backend and CLI actions
 codex-history-core.mjs      Shared backup/history core
-ui/                         Desktop UI source
+Codex-Chat-History-Manager.cmd  Internal desktop UI launcher
+ui/                         Desktop UI source and bundled Usagi assets
 install.ps1                 Installer
 ```
-
-Use the UI for normal operation. Use the CLI only for troubleshooting or when a terminal workflow is preferred.
-
-The UI includes selected Usagi sticker previews in `ui/assets/line-usagi/` and uses `ui/assets/line-usagi/app-icon.ico` for the Windows desktop shortcut. The UI can refresh the same selections into local `ui/private-assets/`.
