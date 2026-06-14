@@ -23,4 +23,4 @@ install.sh                  安装器
 
 如果 UI 找不到 `node`，请先完整打开一次 Codex Desktop，或安装 Node.js 22+。
 
-UI 会把指定 LINE Store 页面的乌萨奇贴图预览导入到本机 `ui/private-assets/`。这些官方图片不会进入 GitHub 或便携导出包；导入失败时会继续使用 `ui/assets/` 中的原创 SVG 占位图。
+UI 已内置筛选后的乌萨奇贴图预览，位于 `ui/assets/line-usagi/`。UI 里也可以把同一批素材刷新到本机 `ui/private-assets/`。

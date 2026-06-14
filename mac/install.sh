@@ -25,22 +25,6 @@ if [ -f "$SOURCE_DIR/Codex-Chat-History-Manager-UI.command" ]; then
   chmod +x "$TARGET/Codex-Chat-History-Manager-UI.command"
 fi
 
-IMPORT_SCRIPT="$TARGET/ui/import-line-usagi.mjs"
-NODE_FOR_IMPORT="${CODEX_NODE:-}"
-if [ -z "$NODE_FOR_IMPORT" ] || [ ! -x "$NODE_FOR_IMPORT" ]; then
-  if command -v node >/dev/null 2>&1; then
-    NODE_FOR_IMPORT="$(command -v node)"
-  fi
-fi
-if [ -n "$NODE_FOR_IMPORT" ] && [ -x "$NODE_FOR_IMPORT" ] && [ -f "$IMPORT_SCRIPT" ]; then
-  echo "Importing local Usagi sticker previews from approved LINE page..."
-  if USAGI_IMPORT_TIMEOUT_MS=15000 "$NODE_FOR_IMPORT" "$IMPORT_SCRIPT" >/dev/null 2>&1; then
-    echo "Usagi stickers imported to local private assets."
-  else
-    echo "Warning: Usagi sticker import failed. You can retry from the desktop UI."
-  fi
-fi
-
 DESKTOP="$HOME/Desktop"
 mkdir -p "$DESKTOP"
 LAUNCHER="$DESKTOP/Codex-Chat-History-Manager.command"

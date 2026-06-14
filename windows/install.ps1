@@ -138,27 +138,6 @@ function Install-NodeRuntime {
 
 Install-NodeRuntime
 
-$importScript = Join-Path $target "ui\import-line-usagi.mjs"
-$installedNode = Join-Path $target "runtime\node.exe"
-if ((Test-Path -LiteralPath $importScript -PathType Leaf) -and (Test-Path -LiteralPath $installedNode -PathType Leaf)) {
-    try {
-        Write-Host "Importing local Usagi sticker previews from approved LINE page..." -ForegroundColor DarkGray
-        $env:USAGI_IMPORT_TIMEOUT_MS = "15000"
-        & $installedNode $importScript 2>$null | Out-Null
-        Remove-Item Env:\USAGI_IMPORT_TIMEOUT_MS -ErrorAction SilentlyContinue
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "Usagi stickers imported to local private assets." -ForegroundColor Green
-        }
-        else {
-            Write-Host "Warning: Usagi sticker import failed. You can retry from the desktop UI." -ForegroundColor Yellow
-        }
-    }
-    catch {
-        Remove-Item Env:\USAGI_IMPORT_TIMEOUT_MS -ErrorAction SilentlyContinue
-        Write-Host "Warning: Usagi sticker import failed. You can retry from the desktop UI." -ForegroundColor Yellow
-    }
-}
-
 $desktopDirectory = [Environment]::GetFolderPath("Desktop")
 if ([string]::IsNullOrWhiteSpace($desktopDirectory)) {
     $desktopDirectory = Join-Path $env:USERPROFILE "Desktop"
@@ -187,7 +166,13 @@ if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
 
-$iconPath = Join-Path $target "ui\assets\app-icon.ico"
+$iconPath = Join-Path $target "ui\assets\line-usagi\app-icon.ico"
+if (-not (Test-Path -LiteralPath $iconPath)) {
+    $iconPath = Join-Path $target "ui\private-assets\line-usagi\app-icon.ico"
+}
+if (-not (Test-Path -LiteralPath $iconPath)) {
+    $iconPath = Join-Path $target "ui\assets\app-icon.ico"
+}
 if (Test-Path -LiteralPath $iconPath) {
     $shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk"
     $shell = New-Object -ComObject WScript.Shell

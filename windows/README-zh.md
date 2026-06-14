@@ -25,4 +25,4 @@ install.ps1                 安装器
 
 日常使用推荐打开桌面 UI；命令行入口保留给排查和高级操作。
 
-UI 会把指定 LINE Store 页面的乌萨奇贴图预览导入到本机 `ui/private-assets/`。这些官方图片不会进入 GitHub 或便携导出包；导入失败时会继续使用 `ui/assets/` 中的原创 SVG 占位图。Windows 桌面快捷方式仍使用 `ui/assets/app-icon.ico`。
+UI 已内置筛选后的乌萨奇贴图预览，位于 `ui/assets/line-usagi/`。Windows 桌面快捷方式优先使用 `ui/assets/line-usagi/app-icon.ico`。UI 里也可以把同一批素材刷新到本机 `ui/private-assets/`。

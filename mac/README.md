@@ -23,4 +23,4 @@ install.sh                  Installer
 
 If the UI cannot find `node`, open Codex Desktop once or install Node.js 22+.
 
-The UI imports Usagi sticker previews from the approved LINE Store page into local-only `ui/private-assets/`. These official images are not stored in GitHub or portable exports. If import fails, bundled SVG placeholders remain available.
+The UI includes selected Usagi sticker previews in `ui/assets/line-usagi/`. The UI can refresh the same selections into local `ui/private-assets/`.

@@ -19,7 +19,9 @@ The UI can locally import Usagi sticker previews from the approved LINE Store pa
 
 https://store.line.me/stickershop/product/21802595/ja
 
-Only previews where Usagi is the main subject are used. The official sticker images are downloaded into `ui/private-assets/` on the user's own machine during install or by clicking "重新导入 LINE 乌萨奇贴图" in the UI. They are intentionally not committed to GitHub or included in portable exports. If import fails, the UI falls back to the bundled original SVG placeholders.
+Only previews where Usagi is the main subject are used. The selected images are bundled under each platform's `ui/assets/line-usagi/` folder for this local, non-commercial learning/UI prototype project. See [ASSET-NOTICE.md](ASSET-NOTICE.md).
+
+The UI can also refresh the same selections into `ui/private-assets/` by clicking "重新导入 LINE 乌萨奇贴图".
 
 ## Repository Layout
 

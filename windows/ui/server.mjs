@@ -13,6 +13,7 @@ const scriptPath = isWindows
   ? join(toolDir, "Codex-History-Manager.ps1")
   : join(toolDir, "Codex-History-Manager.sh");
 const usagiManifestPath = join(uiDir, "private-assets", "line-usagi", "manifest.json");
+const bundledUsagiManifestPath = join(uiDir, "assets", "line-usagi", "manifest.json");
 const importUsagiScript = join(uiDir, "import-line-usagi.mjs");
 
 const mimeTypes = {
@@ -152,26 +153,34 @@ function runManager(action, { argument = "", restoreLogin = false, secret = "" }
 }
 
 async function readUsagiManifest() {
-  try {
-    const manifest = JSON.parse(await readFile(usagiManifestPath, "utf8"));
-    return {
-      ok: true,
-      sourcePage: manifest.sourcePage,
-      pageTitle: manifest.pageTitle,
-      importedAt: manifest.importedAt,
-      assets: Array.isArray(manifest.assets) ? manifest.assets : [],
-      roleAssets: Array.isArray(manifest.roleAssets) ? manifest.roleAssets : [],
-    };
-  } catch {
-    return {
-      ok: true,
-      sourcePage: "https://store.line.me/stickershop/product/21802595/ja",
-      pageTitle: "ちいかわ(うさぎ多)",
-      importedAt: "",
-      assets: [],
-      roleAssets: [],
-    };
+  for (const [kind, manifestPath] of [
+    ["private", usagiManifestPath],
+    ["bundled", bundledUsagiManifestPath],
+  ]) {
+    try {
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      return {
+        ok: true,
+        kind,
+        sourcePage: manifest.sourcePage,
+        pageTitle: manifest.pageTitle,
+        importedAt: manifest.importedAt || manifest.bundledAt || "",
+        assets: Array.isArray(manifest.assets) ? manifest.assets : [],
+        roleAssets: Array.isArray(manifest.roleAssets) ? manifest.roleAssets : [],
+      };
+    } catch {
+      // Try the next manifest source.
+    }
   }
+  return {
+    ok: true,
+    kind: "none",
+    sourcePage: "https://store.line.me/stickershop/product/21802595/ja",
+    pageTitle: "ちいかわ(うさぎ多)",
+    importedAt: "",
+    assets: [],
+    roleAssets: [],
+  };
 }
 
 function runUsagiImporter() {

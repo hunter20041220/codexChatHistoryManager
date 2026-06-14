@@ -19,7 +19,9 @@ UI 会从指定 LINE Store 页面本地导入乌萨奇贴图预览：
 
 https://store.line.me/stickershop/product/21802595/ja
 
-只使用“乌萨奇为主体”的公开预览图。官方贴图图片只会在安装时或点击 UI 里的“重新导入 LINE 乌萨奇贴图”后下载到用户本机的 `ui/private-assets/`，不会提交到 GitHub，也不会被便携导出包打包。导入失败时，UI 会退回仓库自带的原创 SVG 占位图。
+只使用“乌萨奇为主体”的公开预览图。筛选后的图片已经放在各平台的 `ui/assets/line-usagi/`，仅用于本项目的本地个人学习、非商用 UI 原型展示。详见 [ASSET-NOTICE-zh.md](ASSET-NOTICE-zh.md)。
+
+UI 里也可以点击“重新导入 LINE 乌萨奇贴图”，把同一批素材刷新到本机 `ui/private-assets/`。
 
 ## 目录结构
 

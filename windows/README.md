@@ -25,4 +25,4 @@ install.ps1                 Installer
 
 Use the UI for normal operation. Use the CLI only for troubleshooting or when a terminal workflow is preferred.
 
-The UI imports Usagi sticker previews from the approved LINE Store page into local-only `ui/private-assets/`. These official images are not stored in GitHub or portable exports. If import fails, bundled SVG placeholders remain available. `ui/assets/app-icon.ico` is still used for the Windows desktop shortcut.
+The UI includes selected Usagi sticker previews in `ui/assets/line-usagi/` and uses `ui/assets/line-usagi/app-icon.ico` for the Windows desktop shortcut. The UI can refresh the same selections into local `ui/private-assets/`.
