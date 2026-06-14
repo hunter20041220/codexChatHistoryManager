@@ -10,9 +10,7 @@
     <main class="shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="mascot" aria-hidden="true">
-            <span></span>
-          </div>
+          <img class="mascot-img" src="./assets/usagi-wave.svg" alt="" />
           <div>
             <h1>Codex 管理器</h1>
             <p>聊天备份 · 登录切换 · API 配置</p>
@@ -38,6 +36,13 @@
         </header>
 
         <section class="panel active" id="overview">
+          <div class="hero-strip">
+            <img src="./assets/usagi-peek.svg" alt="" />
+            <div>
+              <h3>今天也要把聊天记录照顾好</h3>
+              <p>状态、备份、登录档案和 API 配置都集中在这里。</p>
+            </div>
+          </div>
           <div class="status-grid">
             <article class="metric">
               <span>登录方式</span>
@@ -73,6 +78,13 @@
         </section>
 
         <section class="panel" id="backup">
+          <div class="section-head">
+            <img src="./assets/usagi-backup.svg" alt="" />
+            <div>
+              <h3>备份保管箱</h3>
+              <p>完整备份会加密保存登录状态；恢复前会自动创建安全备份。</p>
+            </div>
+          </div>
           <div class="actions">
             <button data-action="ui-backup-full">创建完整备份</button>
             <button data-action="ui-backup-history">仅备份聊天</button>
@@ -87,6 +99,13 @@
         </section>
 
         <section class="panel" id="login">
+          <div class="section-head">
+            <img src="./assets/usagi-login.svg" alt="" />
+            <div>
+              <h3>登录和档案切换</h3>
+              <p>API Key 只通过标准输入传给脚本，不写入命令行参数。</p>
+            </div>
+          </div>
           <div class="form-row">
             <label>自定义 API 地址</label>
             <input id="baseUrlInput" type="url" placeholder="https://example.com/v1，留空恢复默认" />
@@ -109,6 +128,13 @@
         </section>
 
         <section class="panel" id="network">
+          <div class="section-head">
+            <img src="./assets/usagi-network.svg" alt="" />
+            <div>
+              <h3>API 网络检查</h3>
+              <p>检查 Responses API 兼容性，并切换直连或代理模式。</p>
+            </div>
+          </div>
           <div class="form-row">
             <label>测试模型</label>
             <input id="modelInput" type="text" placeholder="留空读取 config.toml" />
@@ -126,6 +152,13 @@
         </section>
 
         <section class="panel" id="tools">
+          <div class="section-head">
+            <img src="./assets/usagi-tools.svg" alt="" />
+            <div>
+              <h3>工具箱</h3>
+              <p>打开目录、导出便携包，或者跳回经典 CLI 流程。</p>
+            </div>
+          </div>
           <div class="actions tall">
             <button data-action="ui-open-backups">打开备份目录</button>
             <button data-action="ui-open-import">打开 ChatGPT 凭证导入目录</button>

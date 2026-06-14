@@ -22,3 +22,5 @@ install.sh                  Installer
 ```
 
 If the UI cannot find `node`, open Codex Desktop once or install Node.js 22+.
+
+The UI includes original Usagi-inspired SVG stickers in `ui/assets/`.

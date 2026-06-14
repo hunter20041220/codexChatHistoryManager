@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文说明
 
-这是一个给 Codex Desktop 使用的 Windows/macOS 桌面工具。现在带有柔和动漫风格的桌面 UI，用来管理本地聊天备份、备份恢复、ChatGPT 账号档案切换、自定义 API Key 登录、自定义 API 网络检测，以及统一历史记录修复。
+这是一个给 Codex Desktop 使用的 Windows/macOS 桌面工具。现在带有原创乌萨奇风格多表情贴纸桌面 UI，用来管理本地聊天备份、备份恢复、ChatGPT 账号档案切换、自定义 API Key 登录、自定义 API 网络检测，以及统一历史记录修复。
 
 > 仓库只包含工具脚本和说明，不包含你的聊天记录、登录凭证、API Key、备份或个人配置。
 
@@ -14,6 +14,8 @@
 - macOS：运行 `mac/install.sh`，然后打开桌面的 `Codex-Chat-History-Manager-UI.command`。
 
 原来的命令行启动器仍会安装，方便高级排查和备用。
+
+UI 里的角色贴纸是为本项目绘制的原创乌萨奇风格 SVG，没有直接打包搬运官方 Chiikawa/Usagi 图片。
 
 ## 目录结构
 

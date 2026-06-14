@@ -23,3 +23,5 @@ install.ps1                 Installer
 ```
 
 Use the UI for normal operation. Use the CLI only for troubleshooting or when a terminal workflow is preferred.
+
+The UI includes original Usagi-inspired SVG stickers in `ui/assets/`.

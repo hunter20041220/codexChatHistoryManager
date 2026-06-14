@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Usagi style network bunny">
+  <rect width="160" height="160" rx="28" fill="#dcebff"/>
+  <path d="M56 48c-8-35-3-49 8-39 8 8 9 28 7 44M98 48c8-35 3-49-8-39-8 8-9 28-7 44" fill="#fff8c6" stroke="#35251f" stroke-width="6" stroke-linecap="round"/>
+  <ellipse cx="79" cy="84" rx="49" ry="43" fill="#fff8c6" stroke="#35251f" stroke-width="6"/>
+  <circle cx="62" cy="77" r="7" fill="#3a2922"/>
+  <circle cx="96" cy="77" r="7" fill="#3a2922"/>
+  <path d="M74 92q5 7 10 0M79 89v8" fill="none" stroke="#3a2922" stroke-width="4" stroke-linecap="round"/>
+  <path d="M42 96l-14 5M116 96l14 5" stroke="#ff8faa" stroke-width="4" stroke-linecap="round"/>
+  <path d="M51 121c14 18 43 18 56 0" fill="#fff8c6" stroke="#35251f" stroke-width="6" stroke-linecap="round"/>
+  <path d="M37 34c16-14 38-20 58-14M47 49c12-9 27-12 42-7M112 36l13-13M119 50l18-5M118 65h18" fill="none" stroke="#397fd1" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="102" cy="61" r="8" fill="#72d8bd" stroke="#35251f" stroke-width="5"/>
+</svg>

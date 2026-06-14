@@ -2,7 +2,7 @@
 
 English | [中文说明](README-zh.md)
 
-A Windows/macOS desktop utility for Codex Desktop. It provides a soft anime-style UI for local chat backups, backup restore, ChatGPT account profile switching, custom API Key login, custom API network checks, and unified history repair.
+A Windows/macOS desktop utility for Codex Desktop. It provides an original Usagi-inspired multi-sticker desktop UI for local chat backups, backup restore, ChatGPT account profile switching, custom API Key login, custom API network checks, and unified history repair.
 
 > This repository contains only tool scripts and documentation. It does not contain chats, credentials, API keys, backups, or personal Codex config.
 
@@ -14,6 +14,8 @@ The recommended launcher is the desktop UI:
 - macOS: `mac/install.sh`, then open `Codex-Chat-History-Manager-UI.command` on the Desktop.
 
 The classic command-line launcher is still installed for fallback and advanced troubleshooting.
+
+The UI uses original Usagi-inspired SVG stickers drawn for this project. It does not bundle copied official Chiikawa/Usagi artwork.
 
 ## Repository Layout
 

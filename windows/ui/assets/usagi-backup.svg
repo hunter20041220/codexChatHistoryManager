@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Usagi style backup bunny">
+  <rect width="160" height="160" rx="28" fill="#d9f7ef"/>
+  <path d="M58 48c-9-36-2-49 9-38 7 7 8 29 6 44M96 48c9-36 2-49-9-38-7 7-8 29-6 44" fill="#fff9cf" stroke="#35251f" stroke-width="6" stroke-linecap="round"/>
+  <ellipse cx="78" cy="83" rx="47" ry="42" fill="#fff9cf" stroke="#35251f" stroke-width="6"/>
+  <circle cx="62" cy="76" r="7" fill="#3a2922"/>
+  <circle cx="94" cy="76" r="7" fill="#3a2922"/>
+  <circle cx="60" cy="73" r="3" fill="#fff"/>
+  <circle cx="92" cy="73" r="3" fill="#fff"/>
+  <path d="M73 91q5 6 10 0M78 88v8" fill="none" stroke="#3a2922" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43 95l-13 5M113 95l13 5" stroke="#ff94ad" stroke-width="4" stroke-linecap="round"/>
+  <rect x="47" y="113" width="66" height="31" rx="9" fill="#ffbd66" stroke="#35251f" stroke-width="6"/>
+  <path d="M62 113v-8c0-8 9-14 18-14s18 6 18 14v8" fill="none" stroke="#35251f" stroke-width="6"/>
+  <path d="M72 126h17M72 136h30" stroke="#fff6d7" stroke-width="5" stroke-linecap="round"/>
+  <path d="M31 31h18M40 22v18M121 35h14M128 28v14" stroke="#58c2a7" stroke-width="5" stroke-linecap="round"/>
+</svg>

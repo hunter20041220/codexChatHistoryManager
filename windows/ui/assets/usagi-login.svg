@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Usagi style login bunny">
+  <rect width="160" height="160" rx="28" fill="#ffe1ee"/>
+  <path d="M57 47c-9-36-3-49 8-39 8 7 9 28 7 44M97 47c9-36 3-49-8-39-8 7-9 28-7 44" fill="#fff7c5" stroke="#35251f" stroke-width="6" stroke-linecap="round"/>
+  <ellipse cx="78" cy="83" rx="48" ry="42" fill="#fff7c5" stroke="#35251f" stroke-width="6"/>
+  <circle cx="62" cy="76" r="7" fill="#3a2922"/>
+  <circle cx="94" cy="76" r="7" fill="#3a2922"/>
+  <path d="M73 90q5 7 10 0M78 88v8" fill="none" stroke="#3a2922" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43 95l-14 5M114 95l14 5" stroke="#ff8ba7" stroke-width="4" stroke-linecap="round"/>
+  <path d="M51 120c14 18 43 18 56 0" fill="#fff7c5" stroke="#35251f" stroke-width="6" stroke-linecap="round"/>
+  <rect x="57" y="111" width="46" height="34" rx="7" fill="#fff" stroke="#35251f" stroke-width="6"/>
+  <path d="M68 111v-11c0-8 6-14 13-14s13 6 13 14v11" fill="none" stroke="#35251f" stroke-width="6"/>
+  <circle cx="81" cy="128" r="5" fill="#ffcf55"/>
+  <path d="M30 42c8-13 23-16 32-8" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+</svg>
