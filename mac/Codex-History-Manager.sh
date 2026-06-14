@@ -4,13 +4,27 @@ set -u
 set -o pipefail
 
 ACTION="menu"
+ARGUMENT=""
+RESTORE_LOGIN="false"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -Action|--action)
       ACTION="${2:-menu}"
       shift 2
       ;;
+    -Argument|--argument)
+      ARGUMENT="${2:-}"
+      shift 2
+      ;;
+    --restore-login)
+      RESTORE_LOGIN="true"
+      shift
+      ;;
     menu|status|backup|help|profiles|save-chatgpt|first-login|chatgpt-login|export-tool)
+      ACTION="$1"
+      shift
+      ;;
+    ui-*)
       ACTION="$1"
       shift
       ;;
@@ -108,6 +122,23 @@ invoke_core() {
   else
     "$NODE_EXE" --disable-warning=ExperimentalWarning "$CORE_SCRIPT" "$core_action"
   fi
+}
+
+ui_json_ok() {
+  local action="$1"
+  local result_json="${2:-{}}"
+  CHM_UI_ACTION="$action" CHM_UI_RESULT="$result_json" "$NODE_EXE" -e '
+const result = process.env.CHM_UI_RESULT ? JSON.parse(process.env.CHM_UI_RESULT) : {};
+process.stdout.write(JSON.stringify({ ok: true, action: process.env.CHM_UI_ACTION, result }, null, 2) + "\n");
+'
+}
+
+ui_json_error() {
+  local action="$1"
+  local message="$2"
+  CHM_UI_ACTION="$action" CHM_UI_ERROR="$message" "$NODE_EXE" -e '
+process.stdout.write(JSON.stringify({ ok: false, action: process.env.CHM_UI_ACTION, error: process.env.CHM_UI_ERROR || "" }, null, 2) + "\n");
+'
 }
 
 json_get() {
@@ -800,6 +831,35 @@ show_custom_api_compatibility() {
   done
 }
 
+invoke_custom_api_compatibility() {
+  local model="${1:-}"
+  local base_url auth_path api_key direct proxy
+  base_url="$(read_top_level_base_url)" || return 1
+  [ -n "$base_url" ] || { die "当前没有配置自定义 API 地址。"; return 1; }
+  auth_path="$CODEX_HOME_DIR/auth.json"
+  [ -f "$auth_path" ] || { die "未找到 auth.json，无法检查 API 兼容性。"; return 1; }
+  api_key="$(json_file_get "$auth_path" "OPENAI_API_KEY")"
+  [ -n "$api_key" ] || { die "auth.json 中没有 API Key，无法检查 API 兼容性。"; return 1; }
+  if [ -z "$model" ]; then
+    model="$(read_current_model_name || true)"
+  fi
+  [ -n "$model" ] || { die "未找到模型名，请先在 config.toml 中设置 model，或从 UI 输入模型名。"; return 1; }
+  direct="$(test_responses_endpoint "$base_url" "$api_key" "$model" direct)"
+  proxy="$(test_responses_endpoint "$base_url" "$api_key" "$model" proxy)"
+  CHM_BASE_URL="$base_url" CHM_MODEL="$model" CHM_DIRECT="$direct" CHM_PROXY="$proxy" "$NODE_EXE" -e '
+function parse(line) {
+  const [mode, ok, status, ms, body = ""] = String(line || "").split("\t");
+  return { mode, ok: ok === "1", status, ms: Number(ms || 0), body };
+}
+process.stdout.write(JSON.stringify({
+  baseUrl: process.env.CHM_BASE_URL,
+  model: process.env.CHM_MODEL,
+  direct: parse(process.env.CHM_DIRECT),
+  proxy: parse(process.env.CHM_PROXY)
+}));
+'
+}
+
 optimize_custom_api_network() {
   local base_url
   base_url="$(read_top_level_base_url)" || return 1
@@ -851,6 +911,29 @@ optimize_custom_api_network() {
   else
     echo "  [警告] 直连和代理测速都失败，请检查自定义 API 服务或 Key。"
   fi
+}
+
+set_custom_api_network_mode() {
+  local mode="$1"
+  assert_codex_closed || return 1
+  local base_url host_name changed="false"
+  base_url="$(read_top_level_base_url)" || return 1
+  [ -n "$base_url" ] || { die "当前没有配置自定义 API 地址。"; return 1; }
+  host_name="$("$NODE_EXE" -e 'process.stdout.write(new URL(process.argv[1]).hostname)' "$base_url")"
+  if [ "$mode" = "direct" ]; then
+    update_no_proxy_host add "$host_name" && changed="true"
+  else
+    update_no_proxy_host remove "$host_name" && changed="true"
+  fi
+  save_custom_api_profile_if_active >/dev/null 2>&1 || true
+  CHM_MODE="$mode" CHM_HOST="$host_name" CHM_CHANGED="$changed" "$NODE_EXE" -e '
+process.stdout.write(JSON.stringify({
+  mode: process.env.CHM_MODE,
+  host: process.env.CHM_HOST,
+  changed: process.env.CHM_CHANGED === "true",
+  message: process.env.CHM_MODE === "direct" ? "已强制直连自定义 API 域名。" : "已强制该域名走本机代理。"
+}));
+'
 }
 
 show_api_network_menu() {
@@ -1017,6 +1100,63 @@ set_custom_api_address() {
   echo "  [完成] 自定义 API 地址：$(printf '%s' "$result" | json_get "baseUrl")"
   echo "  Provider 已保持为 openai，历史记录不会因登录方式切换而分组消失。"
   echo "  配置备份：$(printf '%s' "$result" | json_get "backupPath")"
+}
+
+set_custom_api_address_for_ui() {
+  local url="$1"
+  assert_codex_closed || return 1
+  url="$(printf '%s' "$url" | xargs)"
+  if [ -n "$url" ] && [[ ! "$url" =~ ^https?:// ]]; then
+    die "地址必须以 http:// 或 https:// 开头。"
+    return 1
+  fi
+  local result warning=""
+  result="$(invoke_core set-base-url "$url")" || return 1
+  if [ -n "$url" ] && [[ ! "$url" =~ /v1/?$ ]]; then
+    warning="地址未以 /v1 结尾，请确认你的服务商要求。"
+  fi
+  CHM_RESULT="$result" CHM_WARNING="$warning" "$NODE_EXE" -e '
+const result = JSON.parse(process.env.CHM_RESULT);
+process.stdout.write(JSON.stringify({
+  baseUrl: result.baseUrl,
+  backupPath: result.backupPath,
+  provider: "openai",
+  warning: process.env.CHM_WARNING || ""
+}));
+'
+}
+
+login_api_key_for_ui() {
+  local first_login="$1"
+  assert_codex_closed || return 1
+  local plain_key tmp_file before_backup="null" after_backup
+  plain_key="$(cat)"
+  tmp_file="$(mktemp)"
+  printf '%s' "$plain_key" > "$tmp_file"
+  plain_key="$(get_api_key_from_text_file "$tmp_file" "UI 输入")" || { rm -f "$tmp_file"; return 1; }
+  rm -f "$tmp_file"
+  if [ "$first_login" != "true" ]; then
+    before_backup="$(new_backup_for_ui true)" || return 1
+  elif [[ "$(get_auth_mode)" != "未找到登录凭证" ]]; then
+    die "当前已经存在登录凭证。请使用普通 API Key 登录，或先确认要覆盖当前状态。"
+    return 1
+  fi
+  printf '%s\n' "$plain_key" | "$CODEX_EXE" login --with-api-key || {
+    plain_key=""
+    die "API Key 登录失败。"
+    return 1
+  }
+  plain_key=""
+  optimize_custom_api_network >/dev/null 2>&1 || true
+  after_backup="$(new_backup_for_ui true)" || return 1
+  CHM_FIRST_LOGIN="$first_login" CHM_BEFORE_BACKUP="$before_backup" CHM_AFTER_BACKUP="$after_backup" "$NODE_EXE" -e '
+process.stdout.write(JSON.stringify({
+  mode: "api-key",
+  firstLogin: process.env.CHM_FIRST_LOGIN === "true",
+  beforeBackup: JSON.parse(process.env.CHM_BEFORE_BACKUP || "null"),
+  afterBackup: JSON.parse(process.env.CHM_AFTER_BACKUP || "{}")
+}));
+'
 }
 
 login_with_api_key() {
@@ -1389,6 +1529,43 @@ new_backup() {
   echo "  保存位置：$backup_path"
 }
 
+new_backup_for_ui() {
+  local include_login_state="$1"
+  local result backup_path backup_name verification failures checked count package_path credential_checked="0"
+  if [ "$include_login_state" = "true" ]; then
+    result="$(invoke_core backup full)" || return 1
+  else
+    result="$(invoke_core backup history)" || return 1
+  fi
+  backup_path="$(printf '%s' "$result" | json_get "destination")"
+  count=0
+  if [ "$include_login_state" = "true" ]; then
+    count="$(protect_login_state "$backup_path")" || return 1
+    backup_name="$(basename "$backup_path")"
+    invoke_core refresh-manifest "$backup_name" >/dev/null || return 1
+  fi
+  set_backup_permissions "$backup_path"
+  verification="$(invoke_core verify "$(basename "$backup_path")")" || return 1
+  failures="$(printf '%s' "$verification" | json_get "failures")"
+  [ "$failures" = "[]" ] || { die "备份完成，但自动校验未通过。"; return 1; }
+  checked="$(printf '%s' "$verification" | json_get "checked")"
+  package_path="$backup_path/$CREDENTIAL_PACKAGE_NAME"
+  if [ "$include_login_state" = "true" ] && [ -f "$package_path" ]; then
+    verify_login_state_package "$package_path" >/dev/null || { die "备份完成，但登录状态解密测试未通过。"; return 1; }
+    credential_checked="$(count_login_state_package "$package_path")"
+  fi
+  CHM_BACKUP_NAME="$(basename "$backup_path")" CHM_BACKUP_PATH="$backup_path" CHM_INCLUDE_LOGIN="$include_login_state" CHM_CREDENTIAL_COUNT="$count" CHM_CHECKED="$checked" CHM_CREDENTIAL_CHECKED="$credential_checked" "$NODE_EXE" -e '
+process.stdout.write(JSON.stringify({
+  backupName: process.env.CHM_BACKUP_NAME,
+  path: process.env.CHM_BACKUP_PATH,
+  includeLoginState: process.env.CHM_INCLUDE_LOGIN === "true",
+  encryptedCredentialCount: Number(process.env.CHM_CREDENTIAL_COUNT || 0),
+  checked: Number(process.env.CHM_CHECKED || 0),
+  credentialChecked: Number(process.env.CHM_CREDENTIAL_CHECKED || 0)
+}));
+'
+}
+
 select_backup() {
   local backups_json count selection
   backups_json="$(invoke_core list)" || return 1
@@ -1446,6 +1623,47 @@ verify_backup_by_json() {
   fi
 }
 
+get_backup_json_by_name() {
+  local name="$1"
+  [ -n "$name" ] || { die "缺少备份名称。"; return 1; }
+  invoke_core list | "$NODE_EXE" -e '
+const fs = require("node:fs");
+const name = process.argv[1];
+const backups = JSON.parse(fs.readFileSync(0, "utf8"));
+const backup = backups.find((item) => item.name === name);
+if (!backup) {
+  console.error(`未找到备份：${name}`);
+  process.exit(1);
+}
+process.stdout.write(JSON.stringify(backup));
+' "$name"
+}
+
+verify_backup_for_ui() {
+  local name="$1"
+  local backup_json result checked path protection package_path credential_checked="0" present="false"
+  backup_json="$(get_backup_json_by_name "$name")" || return 1
+  verify_backup_by_json "$backup_json" || return 1
+  result="$(invoke_core verify "$name")" || return 1
+  checked="$(printf '%s' "$result" | json_get "checked")"
+  path="$(printf '%s' "$backup_json" | json_get "path")"
+  protection="$(printf '%s' "$backup_json" | json_get "credentialProtection")"
+  if [ "$protection" = "macos-keychain-current-user" ]; then
+    package_path="$path/$CREDENTIAL_PACKAGE_NAME"
+    credential_checked="$(count_login_state_package "$package_path")"
+    present="true"
+  fi
+  CHM_NAME="$name" CHM_PATH="$path" CHM_CHECKED="$checked" CHM_CREDENTIAL_CHECKED="$credential_checked" CHM_PRESENT="$present" "$NODE_EXE" -e '
+process.stdout.write(JSON.stringify({
+  name: process.env.CHM_NAME,
+  path: process.env.CHM_PATH,
+  checked: Number(process.env.CHM_CHECKED || 0),
+  credentialChecked: Number(process.env.CHM_CREDENTIAL_CHECKED || 0),
+  credentialPackagePresent: process.env.CHM_PRESENT === "true"
+}));
+'
+}
+
 verify_backup() {
   select_backup || return 1
   verify_backup_by_json "$SELECTED_BACKUP_JSON" || return 1
@@ -1493,6 +1711,31 @@ restore_backup() {
   fi
   echo "  [完成] 聊天记录已恢复，请重新启动 Codex。"
   echo "  恢复来源：$(printf '%s' "$result" | json_get "restoredFrom")"
+}
+
+restore_backup_for_ui() {
+  local name="$1"
+  local include_login_state="$2"
+  assert_codex_closed || return 1
+  local backup_json path protection result package_path safety_backup login_restored="false"
+  backup_json="$(get_backup_json_by_name "$name")" || return 1
+  verify_backup_by_json "$backup_json" || return 1
+  safety_backup="$(new_backup_for_ui true)" || return 1
+  result="$(invoke_core restore "$name")" || return 1
+  path="$(printf '%s' "$backup_json" | json_get "path")"
+  protection="$(printf '%s' "$backup_json" | json_get "credentialProtection")"
+  if [ "$include_login_state" = "true" ] && [ "$protection" = "macos-keychain-current-user" ]; then
+    package_path="$path/$CREDENTIAL_PACKAGE_NAME"
+    restore_login_state "$package_path" || return 1
+    login_restored="true"
+  fi
+  CHM_RESTORED_FROM="$(printf '%s' "$result" | json_get "restoredFrom")" CHM_LOGIN_RESTORED="$login_restored" CHM_SAFETY_BACKUP="$safety_backup" "$NODE_EXE" -e '
+process.stdout.write(JSON.stringify({
+  restoredFrom: process.env.CHM_RESTORED_FROM,
+  loginRestored: process.env.CHM_LOGIN_RESTORED === "true",
+  safetyBackup: JSON.parse(process.env.CHM_SAFETY_BACKUP || "{}")
+}));
+'
 }
 
 enable_unified_history() {
@@ -1681,6 +1924,82 @@ show_menu() {
 EOF
 }
 
+get_ui_status() {
+  local status_json backups_json auth_mode active_label running profiles_json
+  status_json="$(invoke_core status)" || return 1
+  backups_json="$(invoke_core list)" || return 1
+  auth_mode="$(get_auth_mode)"
+  active_label="$(active_profile_label)"
+  running="$(test_codex_running && echo true || echo false)"
+  profiles_json="$("$NODE_EXE" -e '
+const fs = require("node:fs");
+const base = process.argv[1];
+const items = [];
+for (const slot of ["chatgpt", "custom-api"]) {
+  const path = `${base}/${slot}/profile.json`;
+  if (!fs.existsSync(path)) continue;
+  try {
+    const item = JSON.parse(fs.readFileSync(path, "utf8"));
+    item.slot = slot;
+    item.exists = true;
+    items.push(item);
+  } catch {}
+}
+process.stdout.write(JSON.stringify(items));
+' "$PROFILE_DIRECTORY")"
+  CHM_STATUS_JSON="$status_json" CHM_BACKUPS_JSON="$backups_json" CHM_AUTH_MODE="$auth_mode" CHM_ACTIVE_LABEL="$active_label" CHM_RUNNING="$running" CHM_PROFILES="$profiles_json" CHM_CODEX_HOME="$CODEX_HOME_DIR" CHM_BACKUP_DIR="$BACKUP_DIRECTORY" CHM_IMPORT_DIR="$CREDENTIAL_IMPORT_DIRECTORY" "$NODE_EXE" -e '
+const status = JSON.parse(process.env.CHM_STATUS_JSON);
+process.stdout.write(JSON.stringify({
+  authMode: process.env.CHM_AUTH_MODE,
+  activeProfile: process.env.CHM_ACTIVE_LABEL,
+  codexRunning: process.env.CHM_RUNNING === "true",
+  desktopProvider: status.desktopProvider,
+  openaiBaseUrl: status.openaiBaseUrl,
+  totalSessionFiles: status.totalSessionFiles,
+  validSessionFiles: status.validSessionFiles,
+  invalidSessionFiles: status.invalidSessionFiles,
+  indexLines: status.indexLines,
+  providers: status.providers,
+  backups: JSON.parse(process.env.CHM_BACKUPS_JSON),
+  profiles: JSON.parse(process.env.CHM_PROFILES || "[]"),
+  codexHome: process.env.CHM_CODEX_HOME,
+  backupDirectory: process.env.CHM_BACKUP_DIR,
+  credentialImportDirectory: process.env.CHM_IMPORT_DIR
+}));
+'
+}
+
+run_ui_action() {
+  local result
+  case "$ACTION" in
+    ui-status) result="$(get_ui_status)" ;;
+    ui-list-backups) result="$(invoke_core list)" ;;
+    ui-backup-full) result="$(new_backup_for_ui true)" ;;
+    ui-backup-history) result="$(new_backup_for_ui false)" ;;
+    ui-verify-backup) result="$(verify_backup_for_ui "$ARGUMENT")" ;;
+    ui-restore-backup) result="$(restore_backup_for_ui "$ARGUMENT" "$RESTORE_LOGIN")" ;;
+    ui-set-base-url) result="$(set_custom_api_address_for_ui "$ARGUMENT")" ;;
+    ui-login-api-key) result="$(login_api_key_for_ui false)" ;;
+    ui-first-login-api-key) result="$(login_api_key_for_ui true)" ;;
+    ui-save-chatgpt) save_current_chatgpt_profile; result='{"saved":true}' ;;
+    ui-switch-chatgpt) switch_login_profile chatgpt; result='{"switchedTo":"chatgpt"}' ;;
+    ui-switch-api) switch_login_profile custom-api; result='{"switchedTo":"custom-api"}' ;;
+    ui-clean-chatgpt) login_with_chatgpt_account; result='{"started":"chatgpt-login"}' ;;
+    ui-unify-history) enable_unified_history; result='{"unified":true}' ;;
+    ui-login-status) show_login_status; result='{"checked":true}' ;;
+    ui-api-network-auto) optimize_custom_api_network >/dev/null 2>&1 || true; result='{"mode":"auto"}' ;;
+    ui-api-network-direct) result="$(set_custom_api_network_mode direct)" ;;
+    ui-api-network-proxy) result="$(set_custom_api_network_mode proxy)" ;;
+    ui-api-compatibility) result="$(invoke_custom_api_compatibility "$ARGUMENT")" ;;
+    ui-open-backups) mkdir -p "$BACKUP_DIRECTORY"; open "$BACKUP_DIRECTORY"; CHM_OPENED="$BACKUP_DIRECTORY" "$NODE_EXE" -e 'process.stdout.write(JSON.stringify({ opened: process.env.CHM_OPENED }))' ;;
+    ui-open-import) open_credential_import_directory; CHM_OPENED="$CREDENTIAL_IMPORT_DIRECTORY" "$NODE_EXE" -e 'process.stdout.write(JSON.stringify({ opened: process.env.CHM_OPENED }))' ;;
+    ui-open-history) open_resume_picker; result='{"opened":"codex resume --all"}' ;;
+    ui-export-tool) export_portable_tool_package; result='{"exported":true}' ;;
+    *) die "Unknown UI action: $ACTION"; return 1 ;;
+  esac
+  ui_json_ok "$ACTION" "$result"
+}
+
 run_action() {
   case "$1" in
     status) show_status ;;
@@ -1698,6 +2017,19 @@ run_action() {
 init_runtimes || exit 1
 
 case "$ACTION" in
+  ui-*)
+    ui_error_file="$(mktemp)"
+    if run_ui_action 2>"$ui_error_file"; then
+      rm -f "$ui_error_file"
+      exit 0
+    else
+      code=$?
+      ui_error_message="$(cat "$ui_error_file" 2>/dev/null || true)"
+      rm -f "$ui_error_file"
+      ui_json_error "$ACTION" "${ui_error_message:-UI action failed}"
+      exit "$code"
+    fi
+    ;;
   menu) ;;
   status|backup|help|profiles|save-chatgpt|first-login|chatgpt-login|export-tool)
     run_action "$ACTION"

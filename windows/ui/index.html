@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex 聊天与登录管理器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mascot" aria-hidden="true">
+            <span></span>
+          </div>
+          <div>
+            <h1>Codex 管理器</h1>
+            <p>聊天备份 · 登录切换 · API 配置</p>
+          </div>
+        </div>
+        <nav class="tabs" aria-label="功能分类">
+          <button class="tab active" data-tab="overview">总览</button>
+          <button class="tab" data-tab="backup">备份</button>
+          <button class="tab" data-tab="login">登录</button>
+          <button class="tab" data-tab="network">网络</button>
+          <button class="tab" data-tab="tools">工具</button>
+        </nav>
+        <button class="quiet" id="quitButton" type="button">关闭 UI 服务</button>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Desktop UI</p>
+            <h2 id="pageTitle">总览</h2>
+          </div>
+          <button id="refreshButton" type="button">刷新状态</button>
+        </header>
+
+        <section class="panel active" id="overview">
+          <div class="status-grid">
+            <article class="metric">
+              <span>登录方式</span>
+              <strong id="authMode">读取中</strong>
+            </article>
+            <article class="metric">
+              <span>当前档案</span>
+              <strong id="activeProfile">读取中</strong>
+            </article>
+            <article class="metric">
+              <span>Codex 状态</span>
+              <strong id="codexRunning">读取中</strong>
+            </article>
+            <article class="metric">
+              <span>自定义 API</span>
+              <strong id="baseUrl">读取中</strong>
+            </article>
+          </div>
+          <div class="two-col">
+            <article class="box">
+              <h3>会话概况</h3>
+              <dl class="details">
+                <div><dt>会话文件</dt><dd id="sessionFiles">-</dd></div>
+                <div><dt>会话索引</dt><dd id="indexLines">-</dd></div>
+                <div><dt>Provider</dt><dd id="providerList">-</dd></div>
+              </dl>
+            </article>
+            <article class="box">
+              <h3>运行日志</h3>
+              <pre id="logOutput">等待操作...</pre>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" id="backup">
+          <div class="actions">
+            <button data-action="ui-backup-full">创建完整备份</button>
+            <button data-action="ui-backup-history">仅备份聊天</button>
+            <button id="verifyBackupButton">校验所选备份</button>
+            <button id="restoreBackupButton" class="danger">恢复所选备份</button>
+          </div>
+          <label class="checkline">
+            <input id="restoreLogin" type="checkbox" />
+            恢复时同时恢复登录状态和 API 配置
+          </label>
+          <div class="list" id="backupList"></div>
+        </section>
+
+        <section class="panel" id="login">
+          <div class="form-row">
+            <label>自定义 API 地址</label>
+            <input id="baseUrlInput" type="url" placeholder="https://example.com/v1，留空恢复默认" />
+            <button id="saveBaseUrlButton">保存地址</button>
+          </div>
+          <div class="form-row">
+            <label>API Key</label>
+            <input id="apiKeyInput" type="password" autocomplete="off" placeholder="只通过标准输入传给脚本" />
+            <button id="apiLoginButton">API Key 登录</button>
+            <button id="firstApiLoginButton">新用户首次登录</button>
+          </div>
+          <div class="actions">
+            <button data-action="ui-save-chatgpt">保存 ChatGPT 档案</button>
+            <button data-action="ui-switch-chatgpt">切换到 ChatGPT 档案</button>
+            <button data-action="ui-switch-api">切换到自定义 API 档案</button>
+            <button data-action="ui-clean-chatgpt" class="danger">增强切回账号登录</button>
+            <button data-action="ui-unify-history">修复统一历史模式</button>
+            <button data-action="ui-login-status">检查 Codex 登录状态</button>
+          </div>
+        </section>
+
+        <section class="panel" id="network">
+          <div class="form-row">
+            <label>测试模型</label>
+            <input id="modelInput" type="text" placeholder="留空读取 config.toml" />
+            <button id="compatButton">检查 /v1/responses</button>
+          </div>
+          <div class="actions">
+            <button data-action="ui-api-network-auto">自动测速优化</button>
+            <button data-action="ui-api-network-direct">强制直连</button>
+            <button data-action="ui-api-network-proxy">强制走代理</button>
+          </div>
+          <div class="box">
+            <h3>兼容性结果</h3>
+            <pre id="compatOutput">尚未检查</pre>
+          </div>
+        </section>
+
+        <section class="panel" id="tools">
+          <div class="actions tall">
+            <button data-action="ui-open-backups">打开备份目录</button>
+            <button data-action="ui-open-import">打开 ChatGPT 凭证导入目录</button>
+            <button data-action="ui-open-history">用 CLI 打开全部历史</button>
+            <button data-action="ui-export-tool">导出便携安装包</button>
+          </div>
+          <article class="box">
+            <h3>Skill 调研</h3>
+            <p>已安装 OpenAI curated skill：winui-app。跨平台桌面方案按 GitHub star 选择 Electron 作为 UI 方向参考，当前实现使用无 npm 依赖的本地桌面 UI 壳调用现有 Win/Mac 后端脚本。</p>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="confirmDialog">
+      <form method="dialog">
+        <h3 id="confirmTitle">确认操作</h3>
+        <p id="confirmText"></p>
+        <menu>
+          <button value="cancel">取消</button>
+          <button id="confirmOk" value="ok" class="danger">确认</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

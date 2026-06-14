@@ -2,78 +2,51 @@
 
 English | [中文说明](README-zh.md)
 
-A small Windows/macOS utility for Codex Desktop. It backs up local chats, restores history, and switches between ChatGPT account login and custom API Key login without losing the local history list.
+A Windows/macOS desktop utility for Codex Desktop. It provides a soft anime-style UI for local chat backups, backup restore, ChatGPT account profile switching, custom API Key login, custom API network checks, and unified history repair.
 
-> This repository contains only tool scripts and documentation. It does not contain your chats, credentials, API keys, backups, or personal Codex config.
+> This repository contains only tool scripts and documentation. It does not contain chats, credentials, API keys, backups, or personal Codex config.
 
-## Versions
+## Desktop UI
 
-| Platform | Folder | Installer | Credential protection |
-| --- | --- | --- | --- |
-| Windows | `windows/` | `install.cmd` | Windows DPAPI CurrentUser |
-| macOS | `mac/` | `install.sh` | macOS Keychain + OpenSSL |
+The recommended launcher is the desktop UI:
 
-Root-level Windows files are kept for old links and existing users.
+- Windows: `windows/install.cmd`, then open `Codex-Chat-History-Manager-UI.cmd` on the Desktop.
+- macOS: `mac/install.sh`, then open `Codex-Chat-History-Manager-UI.command` on the Desktop.
 
-## Install
+The classic command-line launcher is still installed for fallback and advanced troubleshooting.
 
-Windows:
+## Repository Layout
 
-1. Install and open Codex Desktop once.
-2. Open `windows/`.
-3. Double-click `install.cmd`.
-4. Use the desktop shortcut `Codex-Chat-History-Manager.cmd`.
-
-macOS:
-
-```bash
-cd mac
-chmod +x install.sh Codex-History-Manager.sh
-./install.sh
+```text
+windows/   Windows source, installer, CLI launcher, desktop UI source
+mac/       macOS source, installer, CLI launcher, desktop UI source
+install.cmd  Compatibility shortcut that forwards to windows/install.cmd
 ```
 
-Then open `Codex-Chat-History-Manager.command` on the Desktop.
+## Main Features
 
-## Main Uses
+- Create full backups or chat-only backups.
+- Verify and restore backups, with optional encrypted login-state restore.
+- Switch between saved ChatGPT account and custom API profiles.
+- Log in with an API Key, including first-login flow for new users.
+- Clean API leftovers when switching back to ChatGPT account login.
+- Set or clear custom API base URL.
+- Check `/v1/responses` compatibility and custom API network mode.
+- Repair unified history mode so ChatGPT/API Key sessions remain visible together.
 
-- `[2]` create a full backup.
-- `[5]` restore a backup.
-- `[6]` fix unified history mode when history disappears after switching login methods.
-- `[7]` set or clear a custom API base URL.
-- `[8]` log in with an API Key.
-- `[N] -> [5]` test custom API `/v1/responses` compatibility.
-- `[P] -> [3]` switch back to a saved ChatGPT account profile.
-- `[P] -> [6]` clean API leftovers and start ChatGPT account login.
+## UI Research
 
-Useful commands:
+I checked available Codex skills and desktop UI projects:
 
-```powershell
-Codex-Chat-History-Manager.cmd -Action status
-Codex-Chat-History-Manager.cmd -Action backup
-Codex-Chat-History-Manager.cmd -Action chatgpt-login
-```
+| Option | Stars | Fit |
+| --- | ---: | --- |
+| Electron | 121,622 | Best cross-platform desktop UI ecosystem |
+| Tauri | 107,852 | Strong cross-platform option |
+| NW.js | 41,184 | Mature but less active for this use case |
+| Neutralino | 8,541 | Lightweight but smaller ecosystem |
+| OpenAI `winui-app` skill | openai/skills: 22,118 | Installed locally; Windows-only guidance |
 
-```bash
-~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action status
-~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action backup
-~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action chatgpt-login
-```
-
-## Switching Back From API To ChatGPT
-
-Fully quit Codex Desktop first.
-
-- If a ChatGPT profile was saved before, use `[P] -> [3]`.
-- If no ChatGPT profile was saved, use `[P] -> [6]`.
-
-The enhanced cleanup removes custom API leftovers such as `openai_base_url`, OpenAI API variables in `.env`, custom API hosts in `NO_PROXY`, and API Key auth files.
-
-## Troubleshooting
-
-- `node.exe` or `codex.exe` not found: open Codex Desktop once, then reinstall this tool. The installer copies Codex's bundled Node runtime when available. If it still fails, set `CODEX_NODE` or `CODEX_CLI`.
-- Custom API returns `503` on `/v1/responses`: the provider or upstream model is usually unavailable. Use `[N] -> [5]`.
-- Restore says Codex is running: fully quit Codex Desktop from the tray/menu.
-- Restored login still fails: the token or API key may be expired, signed out, revoked, or deleted by the provider.
+The UI uses a dependency-free local desktop web shell launched with Node, while keeping all sensitive operations in the existing Windows/macOS scripts. This avoids requiring users to install npm packages.
 
 ## Authors
 

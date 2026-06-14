@@ -5,6 +5,9 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $source "Codex-History-Manager.ps1") -Destination $target -Force
 Copy-Item -LiteralPath (Join-Path $source "codex-history-core.mjs") -Destination $target -Force
+if (Test-Path -LiteralPath (Join-Path $source "ui")) {
+    Copy-Item -LiteralPath (Join-Path $source "ui") -Destination $target -Recurse -Force
+}
 if (Test-Path -LiteralPath (Join-Path $source "README-zh.md")) {
     Copy-Item -LiteralPath (Join-Path $source "README-zh.md") -Destination (Join-Path $target "使用说明.md") -Force
 }
@@ -148,7 +151,22 @@ if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopEntry, $desktopScript, [Text.ASCIIEncoding]::new())
 
+$desktopUiEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.cmd"
+$desktopUiScript = @"
+@echo off
+cd /d "%USERPROFILE%\.codex\tools\history-manager"
+set "NODE_EXE=%USERPROFILE%\.codex\tools\history-manager\runtime\node.exe"
+if exist "%NODE_EXE%" (
+  "%NODE_EXE%" "%USERPROFILE%\.codex\tools\history-manager\ui\server.mjs"
+) else (
+  node "%USERPROFILE%\.codex\tools\history-manager\ui\server.mjs"
+)
+if errorlevel 1 pause
+"@
+[IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
+
 Write-Host ""
 Write-Host "Installed to: $target" -ForegroundColor Green
 Write-Host "Desktop shortcut: $desktopEntry" -ForegroundColor Green
+Write-Host "Desktop UI shortcut: $desktopUiEntry" -ForegroundColor Green
 Write-Host ""

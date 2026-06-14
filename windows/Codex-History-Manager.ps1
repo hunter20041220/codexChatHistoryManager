@@ -1,6 +1,7 @@
 ﻿param(
-    [ValidateSet("menu", "status", "backup", "help", "profiles", "save-chatgpt", "first-login", "chatgpt-login", "export-tool")]
-    [string]$Action = "menu"
+    [string]$Action = "menu",
+    [string]$Argument = "",
+    [switch]$RestoreLogin
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +47,9 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 Copy-Item -LiteralPath (Join-Path $source "Codex-History-Manager.ps1") -Destination $target -Force
 Copy-Item -LiteralPath (Join-Path $source "codex-history-core.mjs") -Destination $target -Force
 Copy-Item -LiteralPath (Join-Path $source "README-zh.md") -Destination (Join-Path $target "使用说明.md") -Force
+if (Test-Path -LiteralPath (Join-Path $source "ui")) {
+    Copy-Item -LiteralPath (Join-Path $source "ui") -Destination $target -Recurse -Force
+}
 
 function Test-NodeRuntime {
     param([string]$Path)
@@ -186,9 +190,24 @@ if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopEntry, $desktopScript, [Text.ASCIIEncoding]::new())
 
+$desktopUiEntry = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.cmd"
+$desktopUiScript = @"
+@echo off
+cd /d "%USERPROFILE%\.codex\tools\history-manager"
+set "NODE_EXE=%USERPROFILE%\.codex\tools\history-manager\runtime\node.exe"
+if exist "%NODE_EXE%" (
+  "%NODE_EXE%" "%USERPROFILE%\.codex\tools\history-manager\ui\server.mjs"
+) else (
+  node "%USERPROFILE%\.codex\tools\history-manager\ui\server.mjs"
+)
+if errorlevel 1 pause
+"@
+[IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
+
 Write-Host ""
 Write-Host "Installed to: $target" -ForegroundColor Green
 Write-Host "Desktop shortcut: $desktopEntry" -ForegroundColor Green
+Write-Host "Desktop UI shortcut: $desktopUiEntry" -ForegroundColor Green
 Write-Host ""
 '@
     [IO.File]::WriteAllText((Join-Path $PackageDirectory "install.ps1"), $powerShellInstallScript, [Text.UTF8Encoding]::new($true))
@@ -220,6 +239,9 @@ function Export-PortableToolPackage {
     Copy-Item -LiteralPath (Join-Path $toolDirectory "Codex-History-Manager.ps1") -Destination (Join-Path $packageDirectory "Codex-History-Manager.ps1") -Force
     Copy-Item -LiteralPath (Join-Path $toolDirectory "codex-history-core.mjs") -Destination (Join-Path $packageDirectory "codex-history-core.mjs") -Force
     Copy-Item -LiteralPath (Join-Path $toolDirectory "使用说明.md") -Destination (Join-Path $packageDirectory "README-zh.md") -Force
+    if (Test-Path -LiteralPath (Join-Path $toolDirectory "ui")) {
+        Copy-Item -LiteralPath (Join-Path $toolDirectory "ui") -Destination $packageDirectory -Recurse -Force
+    }
     Write-PortableInstallFiles -PackageDirectory $packageDirectory
 
     $zipPath = "$packageDirectory.zip"
@@ -234,6 +256,9 @@ function Export-PortableToolPackage {
         "install.ps1",
         "README.md"
     ) | ForEach-Object { Join-Path $packageDirectory $_ }
+    if (Test-Path -LiteralPath (Join-Path $packageDirectory "ui")) {
+        $packageFiles += Join-Path $packageDirectory "ui"
+    }
     Compress-Archive -LiteralPath $packageFiles -DestinationPath $zipPath -Force
     if (-not (Test-Path -LiteralPath $zipPath)) {
         throw "便携安装包压缩失败：$zipPath"
@@ -432,6 +457,20 @@ function Invoke-Core {
         return
     }
     return $parsed
+}
+
+function Write-UiJson {
+    param($Value)
+
+    $Value | ConvertTo-Json -Depth 20
+}
+
+function Read-UiSecretFromStdIn {
+    $inputText = [Console]::In.ReadToEnd()
+    if ($null -eq $inputText) {
+        return ""
+    }
+    return $inputText.Trim()
 }
 
 function Get-Sha256 {
@@ -761,6 +800,40 @@ function Show-CustomApiCompatibility {
     }
 }
 
+function Invoke-CustomApiCompatibility {
+    param([string]$Model = "")
+
+    $baseUrl = Get-CurrentOpenAiBaseUrl
+    if (-not $baseUrl) {
+        throw "当前没有配置自定义 API 地址。"
+    }
+
+    $authPath = Join-Path $codexHome "auth.json"
+    if (-not (Test-Path -LiteralPath $authPath)) {
+        throw "未找到 auth.json，无法检查 API 兼容性。"
+    }
+    $auth = Get-Content -LiteralPath $authPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ("$($auth.auth_mode)" -notin @("apikey", "api_key")) {
+        throw "当前不是 API Key 登录，无法检查 API 兼容性。"
+    }
+    $apiKey = "$($auth.OPENAI_API_KEY)"
+    if ([string]::IsNullOrWhiteSpace($apiKey)) {
+        throw "auth.json 中没有 API Key，无法检查 API 兼容性。"
+    }
+
+    $modelName = if ([string]::IsNullOrWhiteSpace($Model)) { Get-CurrentModelName } else { $Model.Trim() }
+    if ([string]::IsNullOrWhiteSpace($modelName)) {
+        throw "未找到模型名，请先在 config.toml 中设置 model，或从 UI 输入模型名。"
+    }
+
+    return [pscustomobject]@{
+        baseUrl = $baseUrl
+        model = $modelName
+        direct = Test-ApiResponsesEndpoint -BaseUrl $baseUrl -ApiKey $apiKey -Model $modelName -Mode "direct"
+        proxy = Test-ApiResponsesEndpoint -BaseUrl $baseUrl -ApiKey $apiKey -Model $modelName -Mode "proxy"
+    }
+}
+
 function Optimize-CustomApiNetwork {
     param([bool]$Interactive = $true)
 
@@ -807,6 +880,29 @@ function Optimize-CustomApiNetwork {
     }
     else {
         Write-Host "  [警告] 直连和代理测速都失败，请检查自定义 API 服务或 Key。" -ForegroundColor Yellow
+    }
+}
+
+function Set-CustomApiNetworkMode {
+    param([ValidateSet("direct", "proxy")] [string]$Mode)
+
+    Assert-CodexClosed
+    $baseUrl = Get-CurrentOpenAiBaseUrl
+    if (-not $baseUrl) {
+        throw "当前没有配置自定义 API 地址。"
+    }
+    $hostName = ([Uri]$baseUrl).Host
+    $changed = if ($Mode -eq "direct") {
+        Add-NoProxyHost -HostName $hostName
+    } else {
+        Remove-NoProxyHost -HostName $hostName
+    }
+    Save-CustomApiProfileIfActive
+    return [pscustomobject]@{
+        mode = $Mode
+        host = $hostName
+        changed = [bool]$changed
+        message = if ($Mode -eq "direct") { "已强制直连自定义 API 域名。" } else { "已强制该域名走本机代理。" }
     }
 }
 
@@ -1647,6 +1743,37 @@ function New-Backup {
     Write-Host ("  保存位置：{0}" -f $backupPath)
 }
 
+function New-BackupForUi {
+    param([bool]$IncludeLoginState)
+
+    $result = Invoke-Core -CoreAction "backup" -Argument $(if ($IncludeLoginState) { "full" } else { "history" })
+    $credentialCount = 0
+    if ($IncludeLoginState) {
+        $credentialCount = Protect-LoginState -BackupPath $result.destination
+        if ($credentialCount -gt 0) {
+            $backupName = Split-Path -Leaf $result.destination
+            $result = Invoke-Core -CoreAction "refresh-manifest" -Argument $backupName
+        }
+    }
+
+    $backupPath = if ($result.destination) { $result.destination } else { Join-Path $backupDirectory $result.backupName }
+    Set-BackupPermissions -BackupPath $backupPath
+    $verification = Invoke-Core -CoreAction "verify" -Argument (Split-Path -Leaf $backupPath)
+    $credentialTest = Test-LoginStatePackage -PackagePath (Join-Path $backupPath $credentialPackageName)
+    if (@($verification.failures).Count -gt 0 -or @($credentialTest.Failures).Count -gt 0) {
+        throw "备份完成，但自动校验未通过。"
+    }
+
+    return [pscustomobject]@{
+        backupName = Split-Path -Leaf $backupPath
+        path = $backupPath
+        includeLoginState = $IncludeLoginState
+        encryptedCredentialCount = $credentialCount
+        checked = $verification.checked
+        credentialChecked = $credentialTest.Checked
+    }
+}
+
 function Get-Backups {
     return @(Invoke-Core -CoreAction "list")
 }
@@ -1728,6 +1855,62 @@ function Verify-BackupByObject {
     }
 }
 
+function Get-BackupByName {
+    param([string]$Name)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        throw "缺少备份名称。"
+    }
+    $backup = @(Get-Backups | Where-Object { $_.name -eq $Name }) | Select-Object -First 1
+    if (-not $backup) {
+        throw "未找到备份：$Name"
+    }
+    return $backup
+}
+
+function Test-BackupForUi {
+    param([string]$Name)
+
+    $backup = Get-BackupByName -Name $Name
+    $result = Invoke-Core -CoreAction "verify" -Argument $backup.name
+    $credentialTest = Test-LoginStatePackage -PackagePath (Join-Path $backup.path $credentialPackageName)
+    $failures = @($result.failures) + @($credentialTest.Failures)
+    if ($failures.Count -gt 0) {
+        throw "备份校验失败：$($failures -join '; ')"
+    }
+    return [pscustomobject]@{
+        name = $backup.name
+        path = $backup.path
+        checked = $result.checked
+        credentialChecked = $credentialTest.Checked
+        credentialPackagePresent = $credentialTest.Present
+    }
+}
+
+function Restore-BackupForUi {
+    param(
+        [string]$Name,
+        [bool]$IncludeLoginState
+    )
+
+    Assert-CodexClosed
+    $backup = Get-BackupByName -Name $Name
+    Verify-BackupByObject -Backup $backup
+    $safetyBackup = New-BackupForUi -IncludeLoginState $true
+    $result = Invoke-Core -CoreAction "restore" -Argument $backup.name
+    $loginRestored = $false
+    $packagePath = Join-Path $backup.path $credentialPackageName
+    if ($IncludeLoginState -and (Test-Path -LiteralPath $packagePath)) {
+        Restore-LoginState -PackagePath $packagePath
+        $loginRestored = $true
+    }
+    return [pscustomobject]@{
+        restoredFrom = $result.restoredFrom
+        loginRestored = $loginRestored
+        safetyBackup = $safetyBackup
+    }
+}
+
 function Enable-UnifiedHistory {
     Assert-CodexClosed
     $configResult = Invoke-Core -CoreAction "unify-config"
@@ -1757,6 +1940,59 @@ function Set-CustomApiAddress {
     Write-Host ("  [完成] 自定义 API 地址：{0}" -f $(if ($result.baseUrl) { $result.baseUrl } else { "已清除，使用 OpenAI 默认地址" })) -ForegroundColor Green
     Write-Host "  Provider 已保持为 openai，历史记录不会因登录方式切换而分组消失。"
     Write-Host ("  配置备份：{0}" -f $result.backupPath)
+}
+
+function Set-CustomApiAddressForUi {
+    param([string]$Url)
+
+    Assert-CodexClosed
+    $trimmedUrl = "$Url".Trim()
+    if ($trimmedUrl -and $trimmedUrl -notmatch '^https?://') {
+        throw "地址必须以 http:// 或 https:// 开头。"
+    }
+    $result = Invoke-Core -CoreAction "set-base-url" -Argument $trimmedUrl
+    return [pscustomobject]@{
+        baseUrl = $result.baseUrl
+        backupPath = $result.backupPath
+        provider = "openai"
+        warning = if ($trimmedUrl -and $trimmedUrl -notmatch '/v1/?$') { "地址未以 /v1 结尾，请确认你的服务商要求。" } else { "" }
+    }
+}
+
+function Invoke-ApiKeyLoginForUi {
+    param(
+        [string]$PlainKey,
+        [bool]$FirstLogin
+    )
+
+    Assert-CodexClosed
+    $apiKey = Get-ApiKeyFromText -Text $PlainKey -SourceLabel "UI 输入"
+    $beforeBackup = $null
+    if (-not $FirstLogin) {
+        $beforeBackup = New-BackupForUi -IncludeLoginState $true
+    }
+    elseif ((Get-AuthMode) -notlike "未找到登录凭证") {
+        throw "当前已经存在登录凭证。请使用普通 API Key 登录，或先确认要覆盖当前状态。"
+    }
+
+    try {
+        $apiKey | & $codexExe login --with-api-key
+        if ($LASTEXITCODE -ne 0) {
+            throw "API Key 登录失败。"
+        }
+    }
+    finally {
+        $apiKey = $null
+    }
+
+    Optimize-CustomApiNetwork -Interactive $false
+    $afterBackup = New-BackupForUi -IncludeLoginState $true
+    return [pscustomobject]@{
+        mode = "api-key"
+        firstLogin = $FirstLogin
+        beforeBackup = $beforeBackup
+        afterBackup = $afterBackup
+    }
 }
 
 function Login-WithApiKey {
@@ -1916,6 +2152,84 @@ function Show-Menu {
     Write-Host "    [Q] 退出"
     Write-Host ""
     Write-Host ("-" * 74) -ForegroundColor DarkGray
+}
+
+function Get-UiStatus {
+    $status = Invoke-Core -CoreAction "status"
+    $backups = @(Invoke-Core -CoreAction "list")
+    return [pscustomobject]@{
+        authMode = Get-AuthMode
+        activeProfile = Get-ActiveProfileLabel
+        codexRunning = Test-CodexRunning
+        desktopProvider = $status.desktopProvider
+        openaiBaseUrl = $status.openaiBaseUrl
+        totalSessionFiles = $status.totalSessionFiles
+        validSessionFiles = $status.validSessionFiles
+        invalidSessionFiles = $status.invalidSessionFiles
+        indexLines = $status.indexLines
+        providers = $status.providers
+        backups = $backups
+        profiles = @(Get-LoginProfiles)
+        codexHome = $codexHome
+        backupDirectory = $backupDirectory
+        credentialImportDirectory = $credentialImportDirectory
+    }
+}
+
+function Invoke-UiAction {
+    param(
+        [string]$Name,
+        [string]$Value,
+        [bool]$IncludeLoginState
+    )
+
+    $result = switch ($Name) {
+        "ui-status" { Get-UiStatus }
+        "ui-list-backups" { @(Get-Backups) }
+        "ui-backup-full" { New-BackupForUi -IncludeLoginState $true }
+        "ui-backup-history" { New-BackupForUi -IncludeLoginState $false }
+        "ui-verify-backup" { Test-BackupForUi -Name $Value }
+        "ui-restore-backup" { Restore-BackupForUi -Name $Value -IncludeLoginState $IncludeLoginState }
+        "ui-set-base-url" { Set-CustomApiAddressForUi -Url $Value }
+        "ui-login-api-key" { Invoke-ApiKeyLoginForUi -PlainKey (Read-UiSecretFromStdIn) -FirstLogin $false }
+        "ui-first-login-api-key" { Invoke-ApiKeyLoginForUi -PlainKey (Read-UiSecretFromStdIn) -FirstLogin $true }
+        "ui-save-chatgpt" { Save-CurrentChatGptProfile; [pscustomobject]@{ saved = $true } }
+        "ui-switch-chatgpt" { Switch-LoginProfile -Slot "chatgpt"; [pscustomobject]@{ switchedTo = "chatgpt" } }
+        "ui-switch-api" { Switch-LoginProfile -Slot "custom-api"; [pscustomobject]@{ switchedTo = "custom-api" } }
+        "ui-clean-chatgpt" { Login-WithChatGptAccount; [pscustomobject]@{ started = "chatgpt-login" } }
+        "ui-unify-history" { Enable-UnifiedHistory; [pscustomobject]@{ unified = $true } }
+        "ui-login-status" { & $codexExe login status; if ($LASTEXITCODE -ne 0) { throw "Codex 登录状态检查失败。" }; [pscustomobject]@{ checked = $true } }
+        "ui-api-network-auto" { Optimize-CustomApiNetwork -Interactive $false; [pscustomobject]@{ mode = "auto" } }
+        "ui-api-network-direct" { Set-CustomApiNetworkMode -Mode "direct" }
+        "ui-api-network-proxy" { Set-CustomApiNetworkMode -Mode "proxy" }
+        "ui-api-compatibility" { Invoke-CustomApiCompatibility -Model $Value }
+        "ui-open-backups" { New-Item -ItemType Directory -Force -Path $backupDirectory | Out-Null; Start-Process explorer.exe -ArgumentList $backupDirectory; [pscustomobject]@{ opened = $backupDirectory } }
+        "ui-open-import" { Open-CredentialImportDirectory; [pscustomobject]@{ opened = $credentialImportDirectory } }
+        "ui-open-history" { Open-ResumePicker; [pscustomobject]@{ opened = "codex resume --all" } }
+        "ui-export-tool" { Export-PortableToolPackage; [pscustomobject]@{ exported = $true } }
+        default { throw "Unknown UI action: $Name" }
+    }
+
+    Write-UiJson -Value ([pscustomobject]@{
+        ok = $true
+        action = $Name
+        result = $result
+    })
+}
+
+if ($Action -like "ui-*") {
+    try {
+        Invoke-UiAction -Name $Action -Value $Argument -IncludeLoginState ([bool]$RestoreLogin)
+        exit 0
+    }
+    catch {
+        Write-UiJson -Value ([pscustomobject]@{
+            ok = $false
+            action = $Action
+            error = $_.Exception.Message
+        })
+        exit 1
+    }
 }
 
 switch ($Action) {

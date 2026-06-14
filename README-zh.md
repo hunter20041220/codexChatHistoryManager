@@ -2,78 +2,51 @@
 
 [English](README.md) | 中文说明
 
-这是一个给 Codex Desktop 用的小工具，支持备份本地聊天、恢复历史记录，并在 ChatGPT 账号登录和自定义 API Key 登录之间切换，尽量避免切换后历史列表丢失或配置残留。
+这是一个给 Codex Desktop 使用的 Windows/macOS 桌面工具。现在带有柔和动漫风格的桌面 UI，用来管理本地聊天备份、备份恢复、ChatGPT 账号档案切换、自定义 API Key 登录、自定义 API 网络检测，以及统一历史记录修复。
 
 > 仓库只包含工具脚本和说明，不包含你的聊天记录、登录凭证、API Key、备份或个人配置。
 
-## 版本
+## 桌面 UI
 
-| 平台 | 目录 | 安装器 | 凭证保护 |
-| --- | --- | --- | --- |
-| Windows | `windows/` | `install.cmd` | Windows DPAPI CurrentUser |
-| macOS | `mac/` | `install.sh` | macOS Keychain + OpenSSL |
+推荐使用桌面 UI：
 
-根目录下的 Windows 文件继续保留，兼容旧链接和旧安装方式。
+- Windows：运行 `windows/install.cmd`，然后打开桌面的 `Codex-Chat-History-Manager-UI.cmd`。
+- macOS：运行 `mac/install.sh`，然后打开桌面的 `Codex-Chat-History-Manager-UI.command`。
 
-## 安装
+原来的命令行启动器仍会安装，方便高级排查和备用。
 
-Windows：
+## 目录结构
 
-1. 先安装并打开一次 Codex Desktop。
-2. 打开 `windows/` 文件夹。
-3. 双击 `install.cmd`。
-4. 使用桌面快捷方式 `Codex-Chat-History-Manager.cmd`。
-
-macOS：
-
-```bash
-cd mac
-chmod +x install.sh Codex-History-Manager.sh
-./install.sh
+```text
+windows/   Windows 源码、安装器、命令行启动器、桌面 UI 源码
+mac/       macOS 源码、安装器、命令行启动器、桌面 UI 源码
+install.cmd  兼容旧用法，转发到 windows/install.cmd
 ```
 
-然后打开桌面的 `Codex-Chat-History-Manager.command`。
+## 主要功能
 
-## 常用功能
+- 创建完整备份或仅聊天记录备份。
+- 校验和恢复备份，可选择恢复加密登录状态。
+- 在已保存的 ChatGPT 账号档案和自定义 API 档案之间切换。
+- 使用 API Key 登录，也支持全新用户首次登录流程。
+- 从自定义 API 切回 ChatGPT 账号时清理 API 残留。
+- 设置或清除自定义 API 地址。
+- 检查 `/v1/responses` 兼容性和自定义 API 网络模式。
+- 修复统一历史模式，让 ChatGPT/API Key 会话一起显示。
 
-- `[2]` 创建完整备份。
-- `[5]` 恢复备份。
-- `[6]` 修复切换登录方式后历史记录不见的问题。
-- `[7]` 设置或清除自定义 API 地址。
-- `[8]` 使用 API Key 登录。
-- `[N] -> [5]` 检查自定义 API 的 `/v1/responses` 兼容性。
-- `[P] -> [3]` 切回已保存的 ChatGPT 账号档案。
-- `[P] -> [6]` 清理 API 残留并启动 ChatGPT 账号登录。
+## UI 调研
 
-常用命令：
+我调研了可用 Codex skill 和桌面 UI 项目：
 
-```powershell
-Codex-Chat-History-Manager.cmd -Action status
-Codex-Chat-History-Manager.cmd -Action backup
-Codex-Chat-History-Manager.cmd -Action chatgpt-login
-```
+| 方案 | Stars | 适配情况 |
+| --- | ---: | --- |
+| Electron | 121,622 | 跨平台桌面 UI 生态最成熟 |
+| Tauri | 107,852 | 很强的跨平台方案 |
+| NW.js | 41,184 | 成熟，但本项目不优先 |
+| Neutralino | 8,541 | 轻量，但生态较小 |
+| OpenAI `winui-app` skill | openai/skills: 22,118 | 已安装到本机；偏 Windows 原生指导 |
 
-```bash
-~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action status
-~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action backup
-~/.codex/tools/history-manager-mac/Codex-History-Manager.sh -Action chatgpt-login
-```
-
-## 从 API 切回 ChatGPT 账号
-
-请先完全退出 Codex Desktop。
-
-- 如果之前保存过 ChatGPT 账号档案，用 `[P] -> [3]`。
-- 如果没有保存过 ChatGPT 账号档案，用 `[P] -> [6]`。
-
-增强清理会移除 `openai_base_url`、`.env` 里的 OpenAI API 变量、`NO_PROXY` 里的自定义 API 域名，以及 API Key 登录凭证文件。
-
-## 常见问题
-
-- 提示找不到 `node.exe` 或 `codex.exe`：先完整打开一次 Codex Desktop，再重新安装本工具。安装器会尽量自动复制 Codex 自带的 Node；仍失败时设置 `CODEX_NODE` 或 `CODEX_CLI`。
-- 自定义 API 在 `/v1/responses` 返回 `503`：通常是服务商或上游模型不可用，用 `[N] -> [5]` 检查。
-- 恢复时提示 Codex 正在运行：请从托盘或菜单完全退出 Codex Desktop。
-- 恢复登录后仍不能用：令牌或 API Key 可能已过期、注销、被撤销或删除，恢复文件不能让失效凭证重新有效。
+本项目的 UI 使用无 npm 依赖的本地桌面 Web 壳，通过 Node 启动并调用现有 Windows/macOS 脚本。这样既有桌面 UI，又不要求用户额外安装 npm 包。
 
 ## 作者
 
