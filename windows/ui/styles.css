@@ -95,6 +95,7 @@ button.danger {
 .mascot-img {
   width: 54px;
   height: 54px;
+  object-fit: contain;
   filter: drop-shadow(0 8px 12px rgba(47, 42, 53, 0.12));
 }
 
@@ -180,12 +181,19 @@ h3 {
   width: 96px;
   height: 96px;
   flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .section-head img {
   width: 74px;
   height: 74px;
   flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.private-usagi {
+  object-fit: contain;
+  filter: drop-shadow(0 10px 14px rgba(47, 42, 53, 0.13));
 }
 
 .hero-strip p,

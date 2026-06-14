@@ -25,4 +25,4 @@ install.ps1                 安装器
 
 日常使用推荐打开桌面 UI；命令行入口保留给排查和高级操作。
 
-UI 使用 `ui/assets/` 中的原创乌萨奇风格 SVG 贴纸，并使用 `ui/assets/app-icon.ico` 作为 Windows 桌面快捷方式图标。
+UI 会把指定 LINE Store 页面的乌萨奇贴图预览导入到本机 `ui/private-assets/`。这些官方图片不会进入 GitHub 或便携导出包；导入失败时会继续使用 `ui/assets/` 中的原创 SVG 占位图。Windows 桌面快捷方式仍使用 `ui/assets/app-icon.ico`。

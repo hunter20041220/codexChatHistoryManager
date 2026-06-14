@@ -2,7 +2,7 @@
 
 English | [中文说明](README-zh.md)
 
-A Windows/macOS desktop utility for Codex Desktop. It provides an original Usagi-inspired multi-sticker desktop UI for local chat backups, backup restore, ChatGPT account profile switching, custom API Key login, custom API network checks, and unified history repair.
+A Windows/macOS desktop utility for Codex Desktop. It provides a local desktop UI for chat backups, backup restore, ChatGPT account profile switching, custom API Key login, custom API network checks, and unified history repair.
 
 > This repository contains only tool scripts and documentation. It does not contain chats, credentials, API keys, backups, or personal Codex config.
 
@@ -15,7 +15,11 @@ The recommended launcher is the desktop UI:
 
 The classic command-line launcher is still installed for fallback and advanced troubleshooting.
 
-The UI uses original Usagi-inspired SVG stickers and a matching Windows `.ico` drawn for this project. It does not bundle copied official Chiikawa/Usagi artwork.
+The UI can locally import Usagi sticker previews from the approved LINE Store page `ちいかわ(うさぎ多)`:
+
+https://store.line.me/stickershop/product/21802595/ja
+
+Only previews where Usagi is the main subject are used. The official sticker images are downloaded into `ui/private-assets/` on the user's own machine during install or by clicking "重新导入 LINE 乌萨奇贴图" in the UI. They are intentionally not committed to GitHub or included in portable exports. If import fails, the UI falls back to the bundled original SVG placeholders.
 
 ## Repository Layout
 

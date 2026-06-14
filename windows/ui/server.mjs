@@ -12,6 +12,8 @@ const isWindows = process.platform === "win32";
 const scriptPath = isWindows
   ? join(toolDir, "Codex-History-Manager.ps1")
   : join(toolDir, "Codex-History-Manager.sh");
+const usagiManifestPath = join(uiDir, "private-assets", "line-usagi", "manifest.json");
+const importUsagiScript = join(uiDir, "import-line-usagi.mjs");
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -20,6 +22,7 @@ const mimeTypes = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".ico": "image/x-icon",
 };
 
 function sendJson(res, status, body) {
@@ -148,6 +151,69 @@ function runManager(action, { argument = "", restoreLogin = false, secret = "" }
   });
 }
 
+async function readUsagiManifest() {
+  try {
+    const manifest = JSON.parse(await readFile(usagiManifestPath, "utf8"));
+    return {
+      ok: true,
+      sourcePage: manifest.sourcePage,
+      pageTitle: manifest.pageTitle,
+      importedAt: manifest.importedAt,
+      assets: Array.isArray(manifest.assets) ? manifest.assets : [],
+      roleAssets: Array.isArray(manifest.roleAssets) ? manifest.roleAssets : [],
+    };
+  } catch {
+    return {
+      ok: true,
+      sourcePage: "https://store.line.me/stickershop/product/21802595/ja",
+      pageTitle: "ちいかわ(うさぎ多)",
+      importedAt: "",
+      assets: [],
+      roleAssets: [],
+    };
+  }
+}
+
+function runUsagiImporter() {
+  return new Promise((resolveRun) => {
+    const nodeExe = process.execPath;
+    const child = spawn(nodeExe, [importUsagiScript], {
+      cwd: uiDir,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => {
+      resolveRun({ ok: false, error: error.message, stdout, stderr });
+    });
+    child.on("close", async (code) => {
+      const parsed = extractJson(stdout);
+      if (code === 0 && parsed?.ok) {
+        const manifest = await readUsagiManifest();
+        resolveRun({ ...parsed, manifest, stdout, stderr, exitCode: code });
+        return;
+      }
+      resolveRun({
+        ok: false,
+        error: parsed?.error || stderr.trim() || stdout.trim() || `Importer failed with exit code ${code}.`,
+        stdout,
+        stderr,
+        exitCode: code,
+      });
+    });
+  });
+}
+
 function findBrowserCommand(url) {
   if (process.env.CHMM_NO_BROWSER === "1") return null;
   if (isWindows) {
@@ -185,6 +251,14 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url || "/", "http://127.0.0.1");
     if (req.method === "GET" && url.pathname === "/api/status") {
       sendJson(res, 200, await runManager("ui-status"));
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/private-assets") {
+      sendJson(res, 200, await readUsagiManifest());
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/import-line-usagi") {
+      sendJson(res, 200, await runUsagiImporter());
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/action") {

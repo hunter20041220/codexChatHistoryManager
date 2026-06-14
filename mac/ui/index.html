@@ -10,7 +10,7 @@
     <main class="shell">
       <aside class="sidebar">
         <div class="brand">
-          <img class="mascot-img" src="./assets/usagi-wave.svg" alt="" />
+          <img class="mascot-img js-usagi-role" data-usagi-role="brand" src="./assets/usagi-wave.svg" alt="" />
           <div>
             <h1>Codex 管理器</h1>
             <p>聊天备份 · 登录切换 · API 配置</p>
@@ -37,7 +37,7 @@
 
         <section class="panel active" id="overview">
           <div class="hero-strip">
-            <img src="./assets/usagi-peek.svg" alt="" />
+            <img class="js-usagi-role" data-usagi-role="hero" src="./assets/usagi-peek.svg" alt="" />
             <div>
               <h3>今天也要把聊天记录照顾好</h3>
               <p>状态、备份、登录档案和 API 配置都集中在这里。</p>
@@ -79,7 +79,7 @@
 
         <section class="panel" id="backup">
           <div class="section-head">
-            <img src="./assets/usagi-backup.svg" alt="" />
+            <img class="js-usagi-role" data-usagi-role="backup" src="./assets/usagi-backup.svg" alt="" />
             <div>
               <h3>备份保管箱</h3>
               <p>完整备份会加密保存登录状态；恢复前会自动创建安全备份。</p>
@@ -100,7 +100,7 @@
 
         <section class="panel" id="login">
           <div class="section-head">
-            <img src="./assets/usagi-login.svg" alt="" />
+            <img class="js-usagi-role" data-usagi-role="login" src="./assets/usagi-login.svg" alt="" />
             <div>
               <h3>登录和档案切换</h3>
               <p>API Key 只通过标准输入传给脚本，不写入命令行参数。</p>
@@ -129,7 +129,7 @@
 
         <section class="panel" id="network">
           <div class="section-head">
-            <img src="./assets/usagi-network.svg" alt="" />
+            <img class="js-usagi-role" data-usagi-role="network" src="./assets/usagi-network.svg" alt="" />
             <div>
               <h3>API 网络检查</h3>
               <p>检查 Responses API 兼容性，并切换直连或代理模式。</p>
@@ -153,7 +153,7 @@
 
         <section class="panel" id="tools">
           <div class="section-head">
-            <img src="./assets/usagi-tools.svg" alt="" />
+            <img class="js-usagi-role" data-usagi-role="tools" src="./assets/usagi-tools.svg" alt="" />
             <div>
               <h3>工具箱</h3>
               <p>打开目录、导出便携包，或者跳回经典 CLI 流程。</p>
@@ -164,6 +164,7 @@
             <button data-action="ui-open-import">打开 ChatGPT 凭证导入目录</button>
             <button data-action="ui-open-history">用 CLI 打开全部历史</button>
             <button data-action="ui-export-tool">导出便携安装包</button>
+            <button id="importUsagiButton" type="button">重新导入 LINE 乌萨奇贴图</button>
           </div>
           <article class="box">
             <h3>Skill 调研</h3>

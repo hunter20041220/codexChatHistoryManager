@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文说明
 
-这是一个给 Codex Desktop 使用的 Windows/macOS 桌面工具。现在带有原创乌萨奇风格多表情贴纸桌面 UI，用来管理本地聊天备份、备份恢复、ChatGPT 账号档案切换、自定义 API Key 登录、自定义 API 网络检测，以及统一历史记录修复。
+这是一个给 Codex Desktop 使用的 Windows/macOS 桌面工具，提供本地桌面 UI，用来管理聊天备份、备份恢复、ChatGPT 账号档案切换、自定义 API Key 登录、自定义 API 网络检测，以及统一历史记录修复。
 
 > 仓库只包含工具脚本和说明，不包含你的聊天记录、登录凭证、API Key、备份或个人配置。
 
@@ -15,7 +15,11 @@
 
 原来的命令行启动器仍会安装，方便高级排查和备用。
 
-UI 里的角色贴纸和 Windows 桌面图标是为本项目绘制的原创乌萨奇风格 SVG/ICO，没有直接打包搬运官方 Chiikawa/Usagi 图片。
+UI 会从指定 LINE Store 页面本地导入乌萨奇贴图预览：
+
+https://store.line.me/stickershop/product/21802595/ja
+
+只使用“乌萨奇为主体”的公开预览图。官方贴图图片只会在安装时或点击 UI 里的“重新导入 LINE 乌萨奇贴图”后下载到用户本机的 `ui/private-assets/`，不会提交到 GitHub，也不会被便携导出包打包。导入失败时，UI 会退回仓库自带的原创 SVG 占位图。
 
 ## 目录结构
 

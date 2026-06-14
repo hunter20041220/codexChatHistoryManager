@@ -7,6 +7,7 @@ Copy-Item -LiteralPath (Join-Path $source "Codex-History-Manager.ps1") -Destinat
 Copy-Item -LiteralPath (Join-Path $source "codex-history-core.mjs") -Destination $target -Force
 if (Test-Path -LiteralPath (Join-Path $source "ui")) {
     Copy-Item -LiteralPath (Join-Path $source "ui") -Destination $target -Recurse -Force
+    Remove-Item -LiteralPath (Join-Path $target "ui\private-assets") -Recurse -Force -ErrorAction SilentlyContinue
 }
 if (Test-Path -LiteralPath (Join-Path $source "README-zh.md")) {
     Copy-Item -LiteralPath (Join-Path $source "README-zh.md") -Destination (Join-Path $target "使用说明.md") -Force
@@ -136,6 +137,27 @@ function Install-NodeRuntime {
 }
 
 Install-NodeRuntime
+
+$importScript = Join-Path $target "ui\import-line-usagi.mjs"
+$installedNode = Join-Path $target "runtime\node.exe"
+if ((Test-Path -LiteralPath $importScript -PathType Leaf) -and (Test-Path -LiteralPath $installedNode -PathType Leaf)) {
+    try {
+        Write-Host "Importing local Usagi sticker previews from approved LINE page..." -ForegroundColor DarkGray
+        $env:USAGI_IMPORT_TIMEOUT_MS = "15000"
+        & $installedNode $importScript 2>$null | Out-Null
+        Remove-Item Env:\USAGI_IMPORT_TIMEOUT_MS -ErrorAction SilentlyContinue
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Usagi stickers imported to local private assets." -ForegroundColor Green
+        }
+        else {
+            Write-Host "Warning: Usagi sticker import failed. You can retry from the desktop UI." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Remove-Item Env:\USAGI_IMPORT_TIMEOUT_MS -ErrorAction SilentlyContinue
+        Write-Host "Warning: Usagi sticker import failed. You can retry from the desktop UI." -ForegroundColor Yellow
+    }
+}
 
 $desktopDirectory = [Environment]::GetFolderPath("Desktop")
 if ([string]::IsNullOrWhiteSpace($desktopDirectory)) {

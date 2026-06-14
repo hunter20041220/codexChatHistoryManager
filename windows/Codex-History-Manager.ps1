@@ -49,6 +49,7 @@ Copy-Item -LiteralPath (Join-Path $source "codex-history-core.mjs") -Destination
 Copy-Item -LiteralPath (Join-Path $source "README-zh.md") -Destination (Join-Path $target "使用说明.md") -Force
 if (Test-Path -LiteralPath (Join-Path $source "ui")) {
     Copy-Item -LiteralPath (Join-Path $source "ui") -Destination $target -Recurse -Force
+    Remove-Item -LiteralPath (Join-Path $target "ui\private-assets") -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Test-NodeRuntime {
@@ -176,6 +177,27 @@ function Install-NodeRuntime {
 
 Install-NodeRuntime
 
+$importScript = Join-Path $target "ui\import-line-usagi.mjs"
+$installedNode = Join-Path $target "runtime\node.exe"
+if ((Test-Path -LiteralPath $importScript -PathType Leaf) -and (Test-Path -LiteralPath $installedNode -PathType Leaf)) {
+    try {
+        Write-Host "Importing local Usagi sticker previews from approved LINE page..." -ForegroundColor DarkGray
+        $env:USAGI_IMPORT_TIMEOUT_MS = "15000"
+        & $installedNode $importScript 2>$null | Out-Null
+        Remove-Item Env:\USAGI_IMPORT_TIMEOUT_MS -ErrorAction SilentlyContinue
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Usagi stickers imported to local private assets." -ForegroundColor Green
+        }
+        else {
+            Write-Host "Warning: Usagi sticker import failed. You can retry from the desktop UI." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Remove-Item Env:\USAGI_IMPORT_TIMEOUT_MS -ErrorAction SilentlyContinue
+        Write-Host "Warning: Usagi sticker import failed. You can retry from the desktop UI." -ForegroundColor Yellow
+    }
+}
+
 $desktopDirectory = [Environment]::GetFolderPath("Desktop")
 if ([string]::IsNullOrWhiteSpace($desktopDirectory)) {
     $desktopDirectory = Join-Path $env:USERPROFILE "Desktop"
@@ -256,6 +278,7 @@ function Export-PortableToolPackage {
     Copy-Item -LiteralPath (Join-Path $toolDirectory "使用说明.md") -Destination (Join-Path $packageDirectory "README-zh.md") -Force
     if (Test-Path -LiteralPath (Join-Path $toolDirectory "ui")) {
         Copy-Item -LiteralPath (Join-Path $toolDirectory "ui") -Destination $packageDirectory -Recurse -Force
+        Remove-Item -LiteralPath (Join-Path $packageDirectory "ui\private-assets") -Recurse -Force -ErrorAction SilentlyContinue
     }
     Write-PortableInstallFiles -PackageDirectory $packageDirectory
 

@@ -30,6 +30,26 @@ async function requestJson(path, options = {}) {
   return data;
 }
 
+async function refreshPrivateUsagiAssets() {
+  try {
+    const data = await requestJson("/api/private-assets");
+    if (!Array.isArray(data.roleAssets) || !data.roleAssets.length) {
+      return data;
+    }
+    const byRole = new Map(data.roleAssets.filter((asset) => asset?.role && asset?.src).map((asset) => [asset.role, asset]));
+    $$(".js-usagi-role").forEach((image) => {
+      const asset = byRole.get(image.dataset.usagiRole);
+      if (!asset) return;
+      image.src = `${asset.src}?v=${encodeURIComponent(data.importedAt || asset.sha256 || asset.stickerId || "")}`;
+      image.classList.add("private-usagi");
+      image.title = `LINE sticker ${asset.stickerId}`;
+    });
+    return data;
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
 async function runAction(action, options = {}) {
   setBusy(true);
   try {
@@ -198,6 +218,24 @@ function setupActions() {
     $("#compatOutput").textContent = data.ok ? JSON.stringify(data.result, null, 2) : data.error || "检查失败";
   });
 
+  $("#importUsagiButton").addEventListener("click", async () => {
+    setBusy(true);
+    try {
+      log("正在从指定 LINE 页面导入乌萨奇贴图...");
+      const data = await requestJson("/api/import-line-usagi", { method: "POST" });
+      if (!data.ok) {
+        log(`导入失败：${data.error || "unknown"}`, data.stderr || data.stdout || data);
+        return;
+      }
+      await refreshPrivateUsagiAssets();
+      log(`导入完成：${data.imported || 0} 张乌萨奇贴图`, data.roleAssets);
+    } catch (error) {
+      log(`导入异常：${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  });
+
   $("#quitButton").addEventListener("click", async () => {
     await fetch("/api/quit", { method: "POST" });
     document.body.innerHTML = "<main class='shell'><section class='workspace'><h2>UI 服务已关闭</h2></section></main>";
@@ -206,4 +244,5 @@ function setupActions() {
 
 setupTabs();
 setupActions();
+refreshPrivateUsagiAssets();
 refreshStatus().catch((error) => log(`启动失败：${error.message}`));
