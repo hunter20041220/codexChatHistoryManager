@@ -165,8 +165,23 @@ if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
 
+$iconPath = Join-Path $target "ui\assets\app-icon.ico"
+if (Test-Path -LiteralPath $iconPath) {
+    $shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk"
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = $desktopUiEntry
+    $shortcut.WorkingDirectory = $target
+    $shortcut.IconLocation = $iconPath
+    $shortcut.Description = "Codex Chat History Manager Desktop UI"
+    $shortcut.Save()
+}
+
 Write-Host ""
 Write-Host "Installed to: $target" -ForegroundColor Green
 Write-Host "Desktop shortcut: $desktopEntry" -ForegroundColor Green
 Write-Host "Desktop UI shortcut: $desktopUiEntry" -ForegroundColor Green
+if (Test-Path -LiteralPath (Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")) {
+    Write-Host "Desktop UI icon shortcut: $(Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")" -ForegroundColor Green
+}
 Write-Host ""

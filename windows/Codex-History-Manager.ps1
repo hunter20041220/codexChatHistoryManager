@@ -204,10 +204,25 @@ if errorlevel 1 pause
 "@
 [IO.File]::WriteAllText($desktopUiEntry, $desktopUiScript, [Text.ASCIIEncoding]::new())
 
+$iconPath = Join-Path $target "ui\assets\app-icon.ico"
+if (Test-Path -LiteralPath $iconPath) {
+    $shortcutPath = Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk"
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = $desktopUiEntry
+    $shortcut.WorkingDirectory = $target
+    $shortcut.IconLocation = $iconPath
+    $shortcut.Description = "Codex Chat History Manager Desktop UI"
+    $shortcut.Save()
+}
+
 Write-Host ""
 Write-Host "Installed to: $target" -ForegroundColor Green
 Write-Host "Desktop shortcut: $desktopEntry" -ForegroundColor Green
 Write-Host "Desktop UI shortcut: $desktopUiEntry" -ForegroundColor Green
+if (Test-Path -LiteralPath (Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")) {
+    Write-Host "Desktop UI icon shortcut: $(Join-Path $desktopDirectory "Codex-Chat-History-Manager-UI.lnk")" -ForegroundColor Green
+}
 Write-Host ""
 '@
     [IO.File]::WriteAllText((Join-Path $PackageDirectory "install.ps1"), $powerShellInstallScript, [Text.UTF8Encoding]::new($true))
@@ -220,7 +235,7 @@ Write-Host ""
 1. 确认本机已经安装 Codex Desktop。
 2. 解压本压缩包。
 3. 双击 `install.cmd`。
-4. 双击桌面的 `Codex-Chat-History-Manager.cmd` 使用。
+4. 双击桌面的 `Codex-Chat-History-Manager-UI.lnk` 使用桌面 UI；也可用 `Codex-Chat-History-Manager.cmd` 打开命令行版本。
 
 本包只包含管理器脚本和说明，不包含导出者的聊天记录、登录凭证、API Key、备份或个人配置。
 

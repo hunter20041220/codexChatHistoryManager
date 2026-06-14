@@ -10,12 +10,12 @@
 
 推荐使用桌面 UI：
 
-- Windows：运行 `windows/install.cmd`，然后打开桌面的 `Codex-Chat-History-Manager-UI.cmd`。
+- Windows：运行 `windows/install.cmd`，然后打开桌面带乌萨奇图标的 `Codex-Chat-History-Manager-UI.lnk`。
 - macOS：运行 `mac/install.sh`，然后打开桌面的 `Codex-Chat-History-Manager-UI.command`。
 
 原来的命令行启动器仍会安装，方便高级排查和备用。
 
-UI 里的角色贴纸是为本项目绘制的原创乌萨奇风格 SVG，没有直接打包搬运官方 Chiikawa/Usagi 图片。
+UI 里的角色贴纸和 Windows 桌面图标是为本项目绘制的原创乌萨奇风格 SVG/ICO，没有直接打包搬运官方 Chiikawa/Usagi 图片。
 
 ## 目录结构
 

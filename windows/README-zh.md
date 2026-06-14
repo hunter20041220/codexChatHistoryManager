@@ -8,7 +8,8 @@
 
 启动：
 
-- 桌面 UI：`Codex-Chat-History-Manager-UI.cmd`
+- 桌面 UI：带乌萨奇风格图标的 `Codex-Chat-History-Manager-UI.lnk`
+- 备用 UI 命令：`Codex-Chat-History-Manager-UI.cmd`
 - 经典命令行：`Codex-Chat-History-Manager.cmd`
 
 安装器会尽量把 Codex Desktop 自带的 `node.exe` 复制到 `%USERPROFILE%\.codex\tools\history-manager\runtime\node.exe`，通常不需要用户手动安装 Node。
@@ -24,4 +25,4 @@ install.ps1                 安装器
 
 日常使用推荐打开桌面 UI；命令行入口保留给排查和高级操作。
 
-UI 使用 `ui/assets/` 中的原创乌萨奇风格 SVG 贴纸。
+UI 使用 `ui/assets/` 中的原创乌萨奇风格 SVG 贴纸，并使用 `ui/assets/app-icon.ico` 作为 Windows 桌面快捷方式图标。

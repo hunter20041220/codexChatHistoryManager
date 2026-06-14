@@ -10,12 +10,12 @@ A Windows/macOS desktop utility for Codex Desktop. It provides an original Usagi
 
 The recommended launcher is the desktop UI:
 
-- Windows: `windows/install.cmd`, then open `Codex-Chat-History-Manager-UI.cmd` on the Desktop.
+- Windows: `windows/install.cmd`, then open the Usagi-icon desktop shortcut `Codex-Chat-History-Manager-UI.lnk`.
 - macOS: `mac/install.sh`, then open `Codex-Chat-History-Manager-UI.command` on the Desktop.
 
 The classic command-line launcher is still installed for fallback and advanced troubleshooting.
 
-The UI uses original Usagi-inspired SVG stickers drawn for this project. It does not bundle copied official Chiikawa/Usagi artwork.
+The UI uses original Usagi-inspired SVG stickers and a matching Windows `.ico` drawn for this project. It does not bundle copied official Chiikawa/Usagi artwork.
 
 ## Repository Layout
 
